@@ -37,7 +37,7 @@ void FingerprintParameters::reset() {
     ridge.gaborFilterSize = 8;    // Kernel 17x17 - bom balanço
     ridge.cacheDegrees = 36;      // FG_CACHE_DEG original
     ridge.cacheFrequencies = 10;  // Qualidade boa
-    ridge.maxIterations = 20;     // Reduzido com early stopping
+    ridge.maxIterations = 180;     // Reduzido com early stopping
 }
 
 bool FingerprintParameters::validate() const {
@@ -184,7 +184,7 @@ void FingerprintParameters::fromJson(const QJsonObject& json) {
         ridge.gaborFilterSize = ridgeObj["gaborFilterSize"].toInt(25);
         ridge.cacheDegrees = ridgeObj["cacheDegrees"].toInt(36);
         ridge.cacheFrequencies = ridgeObj["cacheFrequencies"].toInt(10);
-        ridge.maxIterations = ridgeObj["maxIterations"].toInt(50);
+        ridge.maxIterations = ridgeObj["maxIterations"].toInt(180);
     }
     
     // Módulo 2: Parâmetros de Rendering

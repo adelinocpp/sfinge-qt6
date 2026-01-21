@@ -36,8 +36,12 @@ struct ShapeParameters {
 };
 
 struct DensityParameters {
-    float minFrequency = 1.0f / 13.0f;
-    float maxFrequency = 1.0f / 9.0f;
+    // Densidade de cristas realista a 500 DPI:
+    // - Distância inter-crista típica: 0.45-0.55mm
+    // - A 500 DPI: 1mm = 19.7 pixels
+    // - Período: 9-11 pixels (frequência: 1/11 a 1/9)
+    float minFrequency = 1.0f / 11.0f;  // ~0.091 (período 11 pixels = 0.56mm)
+    float maxFrequency = 1.0f / 9.0f;   // ~0.111 (período 9 pixels = 0.46mm)
     double zoom = 1.0;
     double amplify = 0.5;
 };
@@ -151,7 +155,27 @@ struct RidgeParameters {
     int gaborFilterSize = 8;
     int cacheDegrees = 36;
     int cacheFrequencies = 10;
-    int maxIterations = 20;
+    int maxIterations = 180;
+};
+
+struct MinutiaeStatistics {
+    int minMinutiae = 20;
+    int maxMinutiae = 70;
+    int typicalMinutiae = 40;
+    double bifurcationRatio = 0.45;
+    double coreConcentration = 0.6;
+    double coreRadiusFactor = 0.4;
+    double minSpacing = 24.0;
+    double minQuality = 0.5;
+    double maxQuality = 1.0;
+};
+
+struct MinutiaeParameters {
+    bool enableExplicitMinutiae = true;
+    MinutiaeStatistics stats;
+    int targetMinutiae = -1;
+    double insertionProbability = 0.7;
+    double removalProbability = 0.3;
 };
 
 class FingerprintParameters {
@@ -165,6 +189,7 @@ public:
     ClassificationParameters classification;
     RenderingParameters rendering;
     VariationParameters variation;
+    MinutiaeParameters minutiae;
     
     bool loadFromJson(const QString& filePath);
     bool saveToJson(const QString& filePath) const;

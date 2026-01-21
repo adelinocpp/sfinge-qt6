@@ -33,6 +33,8 @@ set(CORE_SOURCES
     src/core/batch_generator.h
     src/core/batch_generator.cpp
     src/core/batch_worker.cpp
+    src/core/minutiae_generator.h
+    src/core/minutiae_generator.cpp
     # Módulo 2: Rendering Avançado
     src/core/rendering/perlin_noise.h
     src/core/rendering/perlin_noise.cpp

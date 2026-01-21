@@ -96,20 +96,34 @@ int main(int argc, char *argv[]) {
     
     QElapsedTimer timer;
     timer.start();
+    qint64 lastUpdateTime = 0;
+    const qint64 updateInterval = 5000; // Atualizar a cada 5 segundos
     
     QObject::connect(&generator, &SFinGe::BatchGenerator::progressUpdated,
-        [&timer](int fpCompleted, int totalFps, const QString& imgCount) {
+        [&timer, &lastUpdateTime, updateInterval](int fpCompleted, int totalFps, const QString& imgCount) {
             if (fpCompleted > 0) {
                 qint64 elapsed = timer.elapsed();
-                qint64 avgTimePerFp = elapsed / fpCompleted;
-                qint64 remaining = avgTimePerFp * (totalFps - fpCompleted);
-                int remainingSec = remaining / 1000;
-                int elapsedSec = elapsed / 1000;
-                std::cout << "\rFP [" << fpCompleted << "/" << totalFps << "] "
-                          << "Images: " << imgCount.toStdString() << " | "
-                          << "Elapsed: " << elapsedSec << "s, ETA: " 
-                          << remainingSec / 60 << ":" << std::setfill('0') << std::setw(2) << remainingSec % 60
-                          << "          " << std::flush;
+                
+                // Atualizar apenas a cada 5 segundos ou na última impressão
+                if (elapsed - lastUpdateTime >= updateInterval || fpCompleted == totalFps) {
+                    lastUpdateTime = elapsed;
+                    
+                    qint64 avgTimePerFp = elapsed / fpCompleted;
+                    qint64 remaining = avgTimePerFp * (totalFps - fpCompleted);
+                    int remainingSec = remaining / 1000;
+                    int elapsedSec = elapsed / 1000;
+                    
+                    // Calcular imagens por segundo
+                    int totalImages = imgCount.toInt();
+                    double imgsPerSec = (elapsed > 0) ? (totalImages * 1000.0 / elapsed) : 0;
+                    
+                    std::cout << "\rFP [" << fpCompleted << "/" << totalFps << "] "
+                              << "Images: " << imgCount.toStdString() << " | "
+                              << std::fixed << std::setprecision(2) << imgsPerSec << " img/s | "
+                              << "Elapsed: " << elapsedSec << "s, ETA: " 
+                              << remainingSec / 60 << ":" << std::setfill('0') << std::setw(2) << remainingSec % 60
+                              << "          " << std::flush;
+                }
             }
         });
     

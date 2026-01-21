@@ -1,9 +1,9 @@
 #ifndef RIDGE_GENERATOR_H
 #define RIDGE_GENERATOR_H
 
-#include <QImage>
 #include <vector>
 #include <random>
+#include "image.h"
 #include "models/fingerprint_parameters.h"
 #include "gabor_filter.h"
 #include "minutiae_generator.h"
@@ -14,6 +14,9 @@ class RidgeGenerator {
 public:
     RidgeGenerator();
     
+    // Reinicializa o RNG com nova seed - DEVE ser chamado antes de cada geração
+    void reseed();
+    
     void setParameters(const RidgeParameters& params, const DensityParameters& densityParams,
                         const RenderingParameters& renderParams, const VariationParameters& varParams);
     void setMinutiaeParameters(const MinutiaeParameters& params);
@@ -22,7 +25,7 @@ public:
     void setShapeMap(const std::vector<float>& shapeMap);
     void setCorePosition(double coreX, double coreY);
     
-    QImage generate();
+    Image generate();
     
     std::vector<float> getRidgeMap() const { return m_ridgeMap; }
     
@@ -37,7 +40,6 @@ private:
     double applyFilter(const GaborFilter& filter, int x, int y, const std::vector<float>& image);
     std::vector<float> renderFingerprint(const std::vector<float>& binaryRidge);
     
-    // Funções de realismo
     void applyGaussianNoise(std::vector<float>& image, double amplitude);
     void applyLocalContrastVariation(std::vector<float>& image);
     void applyElasticDistortion(std::vector<float>& image);
@@ -61,7 +63,6 @@ private:
     double m_coreX;
     double m_coreY;
     
-    // Perlin noise permutation table
     std::vector<int> m_perm;
     std::mt19937 m_rng;
     MinutiaeGenerator m_minutiaeGenerator;

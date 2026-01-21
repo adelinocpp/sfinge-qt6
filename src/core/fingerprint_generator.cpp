@@ -110,11 +110,21 @@ QImage FingerprintGenerator::generateFingerprint() {
     emit progressChanged(70, "Generating ridge pattern...");
     
     m_ridgeGenerator.setParameters(m_params.ridge, m_params.density, m_params.rendering, m_params.variation);
+    m_ridgeGenerator.setMinutiaeParameters(m_params.minutiae);
     m_ridgeGenerator.setOrientationMap(m_orientationGenerator.getOrientationMap(),
                                       m_shapeGenerator.getWidth(),
                                       m_shapeGenerator.getHeight());
     m_ridgeGenerator.setDensityMap(m_densityGenerator.getDensityMap());
     m_ridgeGenerator.setShapeMap(m_shapeGenerator.getShapeMap());
+    
+    // Set core position from singular points
+    const auto& cores = m_points.getCores();
+    if (!cores.empty()) {
+        m_ridgeGenerator.setCorePosition(cores[0].x, cores[0].y);
+    } else {
+        m_ridgeGenerator.setCorePosition(m_shapeGenerator.getWidth() / 2.0, 
+                                         m_shapeGenerator.getHeight() * 0.4);
+    }
     
     m_fingerprintImage = m_ridgeGenerator.generate();
     
