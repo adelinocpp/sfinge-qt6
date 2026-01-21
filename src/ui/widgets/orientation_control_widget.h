@@ -7,6 +7,9 @@
 #include <QComboBox>
 #include <QSlider>
 #include <QLabel>
+#include <QGroupBox>
+#include <QDoubleSpinBox>
+#include <QStackedWidget>
 #include "models/singular_points.h"
 #include "models/fingerprint_parameters.h"
 
@@ -37,11 +40,14 @@ private slots:
     void onRemoveDelta();
     void onSuggestPoints();
     void onAdvancedParameterChanged();
+    void onClassChanged(int index);
 
 private:
     void setupUi();
+    void setupDynamicPanel();
     void updateCoreLists();
     void updateDeltaLists();
+    void updateDynamicPanel(FingerprintClass fpClass);
     
     SingularPoints m_points;
     int m_imageWidth;
@@ -56,16 +62,36 @@ private:
     QComboBox* m_fpClassCombo;
     QPushButton* m_suggestBtn;
     
-    QSlider* m_convStrengthSlider;
-    QLabel* m_convStrengthLabel;
-    QSlider* m_convRadiusSlider;
-    QLabel* m_convRadiusLabel;
-    QSlider* m_convProbSlider;
-    QLabel* m_convProbLabel;
-    QSlider* m_biasStrengthSlider;
-    QLabel* m_biasStrengthLabel;
-    QSlider* m_biasRadiusSlider;
-    QLabel* m_biasRadiusLabel;
+    // Painel dinâmico de parâmetros
+    QGroupBox* m_dynamicGroup;
+    QStackedWidget* m_paramStack;
+    
+    // Parâmetros Arch
+    QDoubleSpinBox* m_archAmplitude;
+    
+    // Parâmetros Tented Arch
+    QDoubleSpinBox* m_tentedArchAmplitude;
+    QDoubleSpinBox* m_tentedArchDecay;
+    
+    // Parâmetros Loop
+    QDoubleSpinBox* m_loopEdgeBlend;
+    
+    // Parâmetros Whorl
+    QDoubleSpinBox* m_whorlSpiral;
+    QDoubleSpinBox* m_whorlDecay;
+    
+    // Parâmetros Twin Loop
+    QDoubleSpinBox* m_twinLoopSmoothing;
+    
+    // Parâmetros Central Pocket
+    QDoubleSpinBox* m_centralPocketConcentration;
+    
+    // Parâmetros Accidental
+    QDoubleSpinBox* m_accidentalIrregularity;
+    
+private slots:
+    void onCoreSelectionChanged();
+    void onDeltaSelectionChanged();
 };
 
 }

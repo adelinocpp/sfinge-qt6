@@ -29,6 +29,20 @@ void SingularPoints::removeDelta(int index) {
     }
 }
 
+void SingularPoints::updateCore(int index, double x, double y) {
+    if (index >= 0 && index < static_cast<int>(m_cores.size())) {
+        m_cores[index].x = x;
+        m_cores[index].y = y;
+    }
+}
+
+void SingularPoints::updateDelta(int index, double x, double y) {
+    if (index >= 0 && index < static_cast<int>(m_deltas.size())) {
+        m_deltas[index].x = x;
+        m_deltas[index].y = y;
+    }
+}
+
 void SingularPoints::clearCores() {
     m_cores.clear();
 }
@@ -89,16 +103,18 @@ void SingularPoints::generateRandomPoints(FingerprintClass fpClass, int width, i
             break;
             
         case FingerprintClass::LeftLoop:
-            addCore(width * 0.33 + gaussX(gen),
-                   height * 0.42 + gaussY(gen));
-            addDelta(width * 0.68 + gaussX(gen),
+            // Core mais à esquerda, delta mais centralizado; maior distância vertical
+            addCore(width * 0.38 + gaussX(gen),
+                   height * 0.32 + gaussY(gen));
+            addDelta(width * 0.62 + gaussX(gen),
                     height * 0.68 + gaussY(gen));
             break;
             
         case FingerprintClass::RightLoop:
-            addCore(width * 0.67 + gaussX(gen),
-                   height * 0.42 + gaussY(gen));
-            addDelta(width * 0.32 + gaussX(gen),
+            // Core mais à direita, delta mais centralizado; maior distância vertical
+            addCore(width * 0.62 + gaussX(gen),
+                   height * 0.32 + gaussY(gen));
+            addDelta(width * 0.38 + gaussX(gen),
                     height * 0.68 + gaussY(gen));
             break;
             
@@ -119,30 +135,69 @@ void SingularPoints::generateRandomPoints(FingerprintClass fpClass, int width, i
             break;
             
         case FingerprintClass::TwinLoop:
-            // Double Loop: 2 loops LADO A LADO (cores horizontais ACIMA dos deltas)
-            // FBI: "two separate loop formations, with two separate sets of shoulders"
-            // AJUSTE: Cores deslocados verticalmente, acima dos deltas, entre eles horizontalmente
+            // Double Loop: 2 CORES (loops lado a lado) + 2 deltas
             {
-                // Deltas primeiro: mais afastados horizontalmente
-                double delta1X = width * 0.20 + rng->bounded(-20, 21);
-                double delta2X = width * 0.80 + rng->bounded(-20, 21);
-                double deltaY = height * 0.65 + rng->bounded(-15, 16);  // Mais abaixo
+                // Deltas: afastados horizontalmente, abaixo dos cores
+                double delta1X = width * 0.25 + rng->bounded(-10, 11);
+                double delta2X = width * 0.75 + rng->bounded(-10, 11);
+                double deltaY = height * 0.70 + rng->bounded(-8, 9);
                 
                 addDelta(delta1X, deltaY);
                 addDelta(delta2X, deltaY);
                 
-                // Cores: entre os deltas horizontalmente, acima verticalmente com desalinhamento
-                double baseCoreY = deltaY - height * 0.20;  // Base 20% acima dos deltas
-                
-                // Core esquerdo: entre delta esquerdo e centro, com desalinhamento Y
-                double core1X = (delta1X + width * 0.5) / 2.0 + rng->bounded(-20, 21);
-                double core1Y = baseCoreY + rng->bounded(-15, 16);  // Leve desalinhamento vertical
+                // 2 Cores: um à esquerda, outro à direita
+                double core1X = width * 0.35 + rng->bounded(-10, 11);
+                double core1Y = height * 0.38 + rng->bounded(-10, 11);
                 addCore(core1X, core1Y);
                 
-                // Core direito: entre centro e delta direito, com desalinhamento Y oposto
-                double core2X = (width * 0.5 + delta2X) / 2.0 + rng->bounded(-20, 21);
-                double core2Y = baseCoreY + rng->bounded(-15, 16);  // Leve desalinhamento vertical independente
+                double core2X = width * 0.65 + rng->bounded(-10, 11);
+                double core2Y = height * 0.38 + rng->bounded(-10, 11);
                 addCore(core2X, core2Y);
+            }
+            break;
+            
+        case FingerprintClass::CentralPocket:
+            // Central Pocket Loop: 2 cores muito próximos + 2 deltas laterais
+            // Os cores ficam a 1-5% do tamanho da digital, com ângulo aleatório
+            {
+                double core1_x = width * 0.50 + gaussX(gen) * 0.5;
+                double core1_y = height * 0.38 + gaussY(gen) * 0.5;
+                addCore(core1_x, core1_y);
+                
+                // Segundo core a 1-5% de distância em ângulo aleatório
+                double distance = (0.01 + rng->bounded(4) * 0.01) * std::min(width, height);
+                double angle = rng->bounded(360) * M_PI / 180.0;
+                double core2_x = core1_x + distance * std::cos(angle);
+                double core2_y = core1_y + distance * std::sin(angle);
+                addCore(core2_x, core2_y);
+                
+                addDelta(width * 0.25 + gaussX(gen),
+                        height * 0.68 + gaussY(gen));
+                addDelta(width * 0.75 + gaussX(gen),
+                        height * 0.68 + gaussY(gen));
+            }
+            break;
+            
+        case FingerprintClass::Accidental:
+            // Accidental Whorl: combinação de padrões (loop + whorl)
+            // 2 cores em posições assimétricas + 2-3 deltas
+            {
+                // Core 1: posição de loop (lateral superior)
+                addCore(width * 0.35 + gaussX(gen) * 0.5,
+                       height * 0.30 + gaussY(gen) * 0.5);
+                // Core 2: posição de whorl (central)
+                addCore(width * 0.58 + gaussX(gen) * 0.5,
+                       height * 0.45 + gaussY(gen) * 0.5);
+                // Deltas: 2 laterais + 1 opcional central
+                addDelta(width * 0.20 + gaussX(gen),
+                        height * 0.65 + gaussY(gen));
+                addDelta(width * 0.80 + gaussX(gen),
+                        height * 0.65 + gaussY(gen));
+                // Delta adicional para padrão mais complexo (50% chance)
+                if (rng->bounded(2) == 0) {
+                    addDelta(width * 0.50 + gaussX(gen),
+                            height * 0.78 + gaussY(gen));
+                }
             }
             break;
             

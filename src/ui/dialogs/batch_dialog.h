@@ -36,6 +36,7 @@ private:
     // UI Controls
     QSpinBox* m_numFingerprintsSpinBox;
     QSpinBox* m_versionsSpinBox;
+    QSpinBox* m_startIndexSpinBox;
     QLineEdit* m_directoryEdit;
     QPushButton* m_browseButton;
     QLineEdit* m_prefixEdit;

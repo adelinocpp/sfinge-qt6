@@ -42,9 +42,9 @@ void BatchWorker::cancelBatch() {
 void BatchWorker::run() {
     m_cancelled = false;
     
-    // Delegar toda geração ao BatchGenerator
+    // Delegar toda geração ao BatchGenerator (paralelo)
     if (m_batchGenerator) {
-        m_batchGenerator->generateBatch();
+        m_batchGenerator->generateBatchParallel();
     }
 }
 

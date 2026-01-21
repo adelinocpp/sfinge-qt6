@@ -28,6 +28,8 @@ void OrientationControlWidget::setupUi() {
     fpClassCombo->addItem(tr("Right Loop"), static_cast<int>(FingerprintClass::RightLoop));
     fpClassCombo->addItem(tr("Whorl"), static_cast<int>(FingerprintClass::Whorl));
     fpClassCombo->addItem(tr("Twin Loop"), static_cast<int>(FingerprintClass::TwinLoop));
+    fpClassCombo->addItem(tr("Central Pocket"), static_cast<int>(FingerprintClass::CentralPocket));
+    fpClassCombo->addItem(tr("Accidental"), static_cast<int>(FingerprintClass::Accidental));
     fpClassCombo->setCurrentIndex(3);
     m_fpClassCombo = fpClassCombo;
     
@@ -66,81 +68,10 @@ void OrientationControlWidget::setupUi() {
     mainLayout->addWidget(coreGroup);
     mainLayout->addWidget(deltaGroup);
     
-    // Controles de ajuste fino
-    QGroupBox* advancedGroup = new QGroupBox(tr("Advanced Controls"), this);
-    QVBoxLayout* advancedLayout = new QVBoxLayout(advancedGroup);
+    // Painel dinâmico de parâmetros
+    setupDynamicPanel();
+    mainLayout->addWidget(m_dynamicGroup);
     
-    // Core Convergence Strength
-    QHBoxLayout* convStrengthLayout = new QHBoxLayout();
-    QLabel* convLabel = new QLabel(tr("Convergence:"), this);
-    convLabel->setMinimumWidth(90);
-    convStrengthLayout->addWidget(convLabel);
-    m_convStrengthSlider = new QSlider(Qt::Horizontal, this);
-    m_convStrengthSlider->setRange(0, 100);
-    m_convStrengthSlider->setValue(50);  // 50/100 = 0.5
-    m_convStrengthLabel = new QLabel("0.00", this);
-    m_convStrengthLabel->setMinimumWidth(35);
-    convStrengthLayout->addWidget(m_convStrengthSlider, 1);
-    convStrengthLayout->addWidget(m_convStrengthLabel);
-    advancedLayout->addLayout(convStrengthLayout);
-    
-    // Core Convergence Radius
-    QHBoxLayout* convRadiusLayout = new QHBoxLayout();
-    QLabel* radiusLabel = new QLabel(tr("Radius:"), this);
-    radiusLabel->setMinimumWidth(90);
-    convRadiusLayout->addWidget(radiusLabel);
-    m_convRadiusSlider = new QSlider(Qt::Horizontal, this);
-    m_convRadiusSlider->setRange(20, 100);
-    m_convRadiusSlider->setValue(50);
-    m_convRadiusLabel = new QLabel("50", this);
-    m_convRadiusLabel->setMinimumWidth(35);
-    convRadiusLayout->addWidget(m_convRadiusSlider, 1);
-    convRadiusLayout->addWidget(m_convRadiusLabel);
-    advancedLayout->addLayout(convRadiusLayout);
-    
-    // Core Convergence Probability
-    QHBoxLayout* convProbLayout = new QHBoxLayout();
-    QLabel* probLabel = new QLabel(tr("Probability:"), this);
-    probLabel->setMinimumWidth(90);
-    convProbLayout->addWidget(probLabel);
-    m_convProbSlider = new QSlider(Qt::Horizontal, this);
-    m_convProbSlider->setRange(0, 100);
-    m_convProbSlider->setValue(30);
-    m_convProbLabel = new QLabel("0.30", this);
-    m_convProbLabel->setMinimumWidth(35);
-    convProbLayout->addWidget(m_convProbSlider, 1);
-    convProbLayout->addWidget(m_convProbLabel);
-    advancedLayout->addLayout(convProbLayout);
-    
-    // Vertical Bias Strength
-    QHBoxLayout* biasStrengthLayout = new QHBoxLayout();
-    QLabel* biasLabel = new QLabel(tr("Vertical Bias:"), this);
-    biasLabel->setMinimumWidth(90);
-    biasStrengthLayout->addWidget(biasLabel);
-    m_biasStrengthSlider = new QSlider(Qt::Horizontal, this);
-    m_biasStrengthSlider->setRange(0, 100);
-    m_biasStrengthSlider->setValue(0);
-    m_biasStrengthLabel = new QLabel("0.00", this);
-    m_biasStrengthLabel->setMinimumWidth(35);
-    biasStrengthLayout->addWidget(m_biasStrengthSlider, 1);
-    biasStrengthLayout->addWidget(m_biasStrengthLabel);
-    advancedLayout->addLayout(biasStrengthLayout);
-    
-    // Vertical Bias Radius
-    QHBoxLayout* biasRadiusLayout = new QHBoxLayout();
-    QLabel* biasRadiusLabel = new QLabel(tr("Bias Radius:"), this);
-    biasRadiusLabel->setMinimumWidth(90);
-    biasRadiusLayout->addWidget(biasRadiusLabel);
-    m_biasRadiusSlider = new QSlider(Qt::Horizontal, this);
-    m_biasRadiusSlider->setRange(40, 150);
-    m_biasRadiusSlider->setValue(80);
-    m_biasRadiusLabel = new QLabel("80", this);
-    m_biasRadiusLabel->setMinimumWidth(35);
-    biasRadiusLayout->addWidget(m_biasRadiusSlider, 1);
-    biasRadiusLayout->addWidget(m_biasRadiusLabel);
-    advancedLayout->addLayout(biasRadiusLayout);
-    
-    mainLayout->addWidget(advancedGroup);
     mainLayout->addStretch();
     
     connect(m_addCoreBtn, &QPushButton::clicked, this, &OrientationControlWidget::onAddCore);
@@ -148,31 +79,202 @@ void OrientationControlWidget::setupUi() {
     connect(m_addDeltaBtn, &QPushButton::clicked, this, &OrientationControlWidget::onAddDelta);
     connect(m_removeDeltaBtn, &QPushButton::clicked, this, &OrientationControlWidget::onRemoveDelta);
     connect(m_suggestBtn, &QPushButton::clicked, this, &OrientationControlWidget::onSuggestPoints);
+    connect(m_fpClassCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), 
+            this, &OrientationControlWidget::onClassChanged);
     
-    connect(m_convStrengthSlider, &QSlider::valueChanged, this, &OrientationControlWidget::onAdvancedParameterChanged);
-    connect(m_convRadiusSlider, &QSlider::valueChanged, this, &OrientationControlWidget::onAdvancedParameterChanged);
-    connect(m_convProbSlider, &QSlider::valueChanged, this, &OrientationControlWidget::onAdvancedParameterChanged);
-    connect(m_biasStrengthSlider, &QSlider::valueChanged, this, &OrientationControlWidget::onAdvancedParameterChanged);
-    connect(m_biasRadiusSlider, &QSlider::valueChanged, this, &OrientationControlWidget::onAdvancedParameterChanged);
+    // Conexões para seleção de pontos
+    connect(m_coreList, &QListWidget::currentRowChanged, this, &OrientationControlWidget::onCoreSelectionChanged);
+    connect(m_deltaList, &QListWidget::currentRowChanged, this, &OrientationControlWidget::onDeltaSelectionChanged);
+    
+    // Inicializar painel para a classe selecionada
+    onClassChanged(m_fpClassCombo->currentIndex());
+}
+
+void OrientationControlWidget::setupDynamicPanel() {
+    m_dynamicGroup = new QGroupBox(tr("Parameters"), this);
+    QVBoxLayout* dynamicLayout = new QVBoxLayout(m_dynamicGroup);
+    
+    m_paramStack = new QStackedWidget(this);
+    
+    // Página 0: Arch
+    QWidget* archPage = new QWidget();
+    QVBoxLayout* archLayout = new QVBoxLayout(archPage);
+    QHBoxLayout* archAmpLayout = new QHBoxLayout();
+    archAmpLayout->addWidget(new QLabel(tr("Amplitude:"), this));
+    m_archAmplitude = new QDoubleSpinBox(this);
+    m_archAmplitude->setRange(-999.0, 999.0);
+    m_archAmplitude->setSingleStep(0.05);
+    m_archAmplitude->setValue(0.70);  // Valor padrão entre 0.5 e 1.0
+    archAmpLayout->addWidget(m_archAmplitude);
+    archLayout->addLayout(archAmpLayout);
+    archLayout->addStretch();
+    m_paramStack->addWidget(archPage);
+    
+    // Página 1: Tented Arch
+    QWidget* tentedPage = new QWidget();
+    QVBoxLayout* tentedLayout = new QVBoxLayout(tentedPage);
+    QHBoxLayout* tentedAmpLayout = new QHBoxLayout();
+    tentedAmpLayout->addWidget(new QLabel(tr("Amplitude:"), this));
+    m_tentedArchAmplitude = new QDoubleSpinBox(this);
+    m_tentedArchAmplitude->setRange(-999.0, 999.0);
+    m_tentedArchAmplitude->setSingleStep(0.01);
+    m_tentedArchAmplitude->setValue(0.15);
+    tentedAmpLayout->addWidget(m_tentedArchAmplitude);
+    tentedLayout->addLayout(tentedAmpLayout);
+    
+    QHBoxLayout* tentedDecayLayout = new QHBoxLayout();
+    tentedDecayLayout->addWidget(new QLabel(tr("Peak Decay:"), this));
+    m_tentedArchDecay = new QDoubleSpinBox(this);
+    m_tentedArchDecay->setRange(-999.0, 999.0);
+    m_tentedArchDecay->setSingleStep(0.01);
+    m_tentedArchDecay->setValue(0.06);
+    tentedDecayLayout->addWidget(m_tentedArchDecay);
+    tentedLayout->addLayout(tentedDecayLayout);
+    tentedLayout->addStretch();
+    m_paramStack->addWidget(tentedPage);
+    
+    // Página 2: Left Loop
+    QWidget* leftLoopPage = new QWidget();
+    QVBoxLayout* leftLoopLayout = new QVBoxLayout(leftLoopPage);
+    QHBoxLayout* loopBlendLayout = new QHBoxLayout();
+    loopBlendLayout->addWidget(new QLabel(tr("Edge Blend:"), this));
+    m_loopEdgeBlend = new QDoubleSpinBox(this);
+    m_loopEdgeBlend->setRange(-999.0, 999.0);
+    m_loopEdgeBlend->setSingleStep(0.1);
+    m_loopEdgeBlend->setValue(0.8);  // Valor padrão maior para efeito visível
+    loopBlendLayout->addWidget(m_loopEdgeBlend);
+    leftLoopLayout->addLayout(loopBlendLayout);
+    leftLoopLayout->addStretch();
+    m_paramStack->addWidget(leftLoopPage);
+    
+    // Página 3: Right Loop - NÃO adiciona widget, usa índice 2 (Left Loop)
+    // O mapeamento é feito em updateDynamicPanel()
+    
+    // Página 4: Whorl
+    QWidget* whorlPage = new QWidget();
+    QVBoxLayout* whorlLayout = new QVBoxLayout(whorlPage);
+    QHBoxLayout* whorlSpiralLayout = new QHBoxLayout();
+    whorlSpiralLayout->addWidget(new QLabel(tr("Spiral:"), this));
+    m_whorlSpiral = new QDoubleSpinBox(this);
+    m_whorlSpiral->setRange(-999.0, 999.0);
+    m_whorlSpiral->setSingleStep(0.02);
+    m_whorlSpiral->setValue(0.12);
+    whorlSpiralLayout->addWidget(m_whorlSpiral);
+    whorlLayout->addLayout(whorlSpiralLayout);
+    
+    QHBoxLayout* whorlDecayLayout = new QHBoxLayout();
+    whorlDecayLayout->addWidget(new QLabel(tr("Edge Decay:"), this));
+    m_whorlDecay = new QDoubleSpinBox(this);
+    m_whorlDecay->setRange(-999.0, 999.0);
+    m_whorlDecay->setSingleStep(0.02);
+    m_whorlDecay->setValue(0.18);
+    whorlDecayLayout->addWidget(m_whorlDecay);
+    whorlLayout->addLayout(whorlDecayLayout);
+    whorlLayout->addStretch();
+    m_paramStack->addWidget(whorlPage);
+    
+    // Página 5: Twin Loop
+    QWidget* twinLoopPage = new QWidget();
+    QVBoxLayout* twinLoopLayout = new QVBoxLayout(twinLoopPage);
+    QHBoxLayout* twinSmoothLayout = new QHBoxLayout();
+    twinSmoothLayout->addWidget(new QLabel(tr("Smoothing:"), this));
+    m_twinLoopSmoothing = new QDoubleSpinBox(this);
+    m_twinLoopSmoothing->setRange(-999.0, 999.0);
+    m_twinLoopSmoothing->setSingleStep(1.0);
+    m_twinLoopSmoothing->setValue(7.0);
+    twinSmoothLayout->addWidget(m_twinLoopSmoothing);
+    twinLoopLayout->addLayout(twinSmoothLayout);
+    twinLoopLayout->addStretch();
+    m_paramStack->addWidget(twinLoopPage);
+    
+    // Página 6: Central Pocket
+    QWidget* centralPocketPage = new QWidget();
+    QVBoxLayout* centralPocketLayout = new QVBoxLayout(centralPocketPage);
+    QHBoxLayout* cpConcentrationLayout = new QHBoxLayout();
+    cpConcentrationLayout->addWidget(new QLabel(tr("Concentration:"), this));
+    m_centralPocketConcentration = new QDoubleSpinBox(this);
+    m_centralPocketConcentration->setRange(-999.0, 999.0);
+    m_centralPocketConcentration->setSingleStep(0.01);
+    m_centralPocketConcentration->setValue(0.06);
+    cpConcentrationLayout->addWidget(m_centralPocketConcentration);
+    centralPocketLayout->addLayout(cpConcentrationLayout);
+    centralPocketLayout->addStretch();
+    m_paramStack->addWidget(centralPocketPage);
+    
+    // Página 7: Accidental
+    QWidget* accidentalPage = new QWidget();
+    QVBoxLayout* accidentalLayout = new QVBoxLayout(accidentalPage);
+    QHBoxLayout* accIrregularityLayout = new QHBoxLayout();
+    accIrregularityLayout->addWidget(new QLabel(tr("Irregularity:"), this));
+    m_accidentalIrregularity = new QDoubleSpinBox(this);
+    m_accidentalIrregularity->setRange(-999.0, 999.0);
+    m_accidentalIrregularity->setSingleStep(0.02);
+    m_accidentalIrregularity->setValue(0.08);
+    accIrregularityLayout->addWidget(m_accidentalIrregularity);
+    accidentalLayout->addLayout(accIrregularityLayout);
+    accidentalLayout->addStretch();
+    m_paramStack->addWidget(accidentalPage);
+    
+    dynamicLayout->addWidget(m_paramStack);
+    
+    // Conectar sinais de alteração de parâmetros
+    connect(m_archAmplitude, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, &OrientationControlWidget::onAdvancedParameterChanged);
+    connect(m_tentedArchAmplitude, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, &OrientationControlWidget::onAdvancedParameterChanged);
+    connect(m_tentedArchDecay, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, &OrientationControlWidget::onAdvancedParameterChanged);
+    connect(m_loopEdgeBlend, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, &OrientationControlWidget::onAdvancedParameterChanged);
+    connect(m_whorlSpiral, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, &OrientationControlWidget::onAdvancedParameterChanged);
+    connect(m_whorlDecay, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, &OrientationControlWidget::onAdvancedParameterChanged);
+    connect(m_twinLoopSmoothing, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, &OrientationControlWidget::onAdvancedParameterChanged);
+    connect(m_centralPocketConcentration, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, &OrientationControlWidget::onAdvancedParameterChanged);
+    connect(m_accidentalIrregularity, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
+            this, &OrientationControlWidget::onAdvancedParameterChanged);
+}
+
+void OrientationControlWidget::onClassChanged(int index) {
+    FingerprintClass fpClass = static_cast<FingerprintClass>(m_fpClassCombo->itemData(index).toInt());
+    updateDynamicPanel(fpClass);
+}
+
+void OrientationControlWidget::updateDynamicPanel(FingerprintClass fpClass) {
+    // Mapear classe para índice da página
+    // Nota: Right Loop usa a mesma página do Left Loop (índice 2)
+    int pageIndex = 0;
+    switch (fpClass) {
+        case FingerprintClass::Arch:          pageIndex = 0; break;
+        case FingerprintClass::TentedArch:    pageIndex = 1; break;
+        case FingerprintClass::LeftLoop:      pageIndex = 2; break;
+        case FingerprintClass::RightLoop:     pageIndex = 2; break;
+        case FingerprintClass::Whorl:         pageIndex = 3; break;
+        case FingerprintClass::TwinLoop:      pageIndex = 4; break;
+        case FingerprintClass::CentralPocket: pageIndex = 5; break;
+        case FingerprintClass::Accidental:    pageIndex = 6; break;
+        default: pageIndex = 0; break;
+    }
+    m_paramStack->setCurrentIndex(pageIndex);
 }
 
 void OrientationControlWidget::onAdvancedParameterChanged() {
-    m_convStrengthLabel->setText(QString::number(m_convStrengthSlider->value() / 100.0, 'f', 2));
-    m_convRadiusLabel->setText(QString::number(m_convRadiusSlider->value()));
-    m_convProbLabel->setText(QString::number(m_convProbSlider->value() / 100.0, 'f', 2));
-    m_biasStrengthLabel->setText(QString::number(m_biasStrengthSlider->value() / 100.0, 'f', 2));
-    m_biasRadiusLabel->setText(QString::number(m_biasRadiusSlider->value()));
-    
-        
     emit parametersChanged();
 }
 
 void OrientationControlWidget::updateOrientationParameters(OrientationParameters& params) const {
-    params.coreConvergenceStrength = m_convStrengthSlider->value() / 100.0;
-    params.coreConvergenceRadius = m_convRadiusSlider->value();
-    params.coreConvergenceProbability = m_convProbSlider->value() / 100.0;
-    params.verticalBiasStrength = m_biasStrengthSlider->value() / 100.0;
-    params.verticalBiasRadius = m_biasRadiusSlider->value();
+    // Atualizar parâmetros com valores do painel dinâmico
+    params.archAmplitude = m_archAmplitude->value();
+    params.tentedArchPeakInfluenceDecay = m_tentedArchDecay->value();
+    params.loopEdgeBlendFactor = m_loopEdgeBlend->value();
+    params.whorlSpiralFactor = m_whorlSpiral->value();
+    params.whorlEdgeDecayFactor = m_whorlDecay->value();
+    params.twinLoopSmoothing = m_twinLoopSmoothing->value();
+    params.centralPocketConcentration = m_centralPocketConcentration->value();
+    params.accidentalIrregularity = m_accidentalIrregularity->value();
 }
 
 void OrientationControlWidget::setSingularPoints(const SingularPoints& points) {
@@ -286,6 +388,14 @@ void OrientationControlWidget::setCurrentClass(FingerprintClass fpClass) {
             break;
         }
     }
+}
+
+void OrientationControlWidget::onCoreSelectionChanged() {
+    // Seleção de core alterada - sem ação necessária
+}
+
+void OrientationControlWidget::onDeltaSelectionChanged() {
+    // Seleção de delta alterada - sem ação necessária
 }
 
 }

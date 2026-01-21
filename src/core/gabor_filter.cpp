@@ -55,7 +55,9 @@ GaborFilterCache::GaborFilterCache(int cacheDegrees, int cacheFrequencies,
     
     for (int i = 0; i < cacheDegrees; ++i) {
         for (int j = 0; j < cacheFrequencies; ++j) {
-            double theta = indexToValue(i, 0, 2.0 * M_PI, cacheDegrees) + M_PI / 2.0;
+            // Convenção v4.0: theta do orientationMap já é perpendicular às cristas
+            // NÃO adicionar +π/2 aqui
+            double theta = indexToValue(i, 0, 2.0 * M_PI, cacheDegrees);
             double freq = indexToValue(j, minFreq, maxFreq, cacheFrequencies);
             double sigma = std::sqrt(-9.0 / (8.0 * freq * freq * std::log(0.001)));
             

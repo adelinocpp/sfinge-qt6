@@ -82,6 +82,16 @@ QJsonObject FingerprintParameters::toJson() const {
     orientationObj["verticalBiasRadius"] = orientation.verticalBiasRadius;
     orientationObj["anisotropyFactorX"] = orientation.anisotropyFactorX;
     orientationObj["anisotropyFactorY"] = orientation.anisotropyFactorY;
+    // Parâmetros v2.0
+    orientationObj["archAmplitude"] = orientation.archAmplitude;
+    orientationObj["tentedArchPeakInfluenceDecay"] = orientation.tentedArchPeakInfluenceDecay;
+    orientationObj["loopVerticalBiasStrength"] = orientation.loopVerticalBiasStrength;
+    orientationObj["loopEdgeBlendFactor"] = orientation.loopEdgeBlendFactor;
+    orientationObj["loopVerticalBiasRadiusFactor"] = orientation.loopVerticalBiasRadiusFactor;
+    orientationObj["whorlSpiralFactor"] = orientation.whorlSpiralFactor;
+    orientationObj["whorlEdgeDecayFactor"] = orientation.whorlEdgeDecayFactor;
+    orientationObj["smoothingSigma"] = orientation.smoothingSigma;
+    orientationObj["enableSmoothing"] = orientation.enableSmoothing;
     json["orientation"] = orientationObj;
     
     QJsonObject ridgeObj;
@@ -90,6 +100,42 @@ QJsonObject FingerprintParameters::toJson() const {
     ridgeObj["cacheFrequencies"] = ridge.cacheFrequencies;
     ridgeObj["maxIterations"] = ridge.maxIterations;
     json["ridge"] = ridgeObj;
+    
+    // Módulo 2: Parâmetros de Rendering
+    QJsonObject renderingObj;
+    renderingObj["backgroundNoiseFrequency"] = rendering.backgroundNoiseFrequency;
+    renderingObj["backgroundNoiseAmplitude"] = rendering.backgroundNoiseAmplitude;
+    renderingObj["ridgeNoiseFrequency"] = rendering.ridgeNoiseFrequency;
+    renderingObj["ridgeNoiseAmplitude"] = rendering.ridgeNoiseAmplitude;
+    renderingObj["valleyNoiseFrequency"] = rendering.valleyNoiseFrequency;
+    renderingObj["valleyNoiseAmplitude"] = rendering.valleyNoiseAmplitude;
+    renderingObj["enablePores"] = rendering.enablePores;
+    renderingObj["poreDensity"] = rendering.poreDensity;
+    renderingObj["minPoreSize"] = rendering.minPoreSize;
+    renderingObj["maxPoreSize"] = rendering.maxPoreSize;
+    renderingObj["minPoreIntensity"] = rendering.minPoreIntensity;
+    renderingObj["maxPoreIntensity"] = rendering.maxPoreIntensity;
+    renderingObj["finalBlurSigma"] = rendering.finalBlurSigma;
+    renderingObj["contrastPercentileLower"] = rendering.contrastPercentileLower;
+    renderingObj["contrastPercentileUpper"] = rendering.contrastPercentileUpper;
+    json["rendering"] = renderingObj;
+    
+    // Módulo 3: Parâmetros de Variação
+    QJsonObject variationObj;
+    variationObj["enablePlasticDistortion"] = variation.enablePlasticDistortion;
+    variationObj["plasticDistortionStrength"] = variation.plasticDistortionStrength;
+    variationObj["plasticDistortionBumps"] = variation.plasticDistortionBumps;
+    variationObj["enableLensDistortion"] = variation.enableLensDistortion;
+    variationObj["lensDistortionK1"] = variation.lensDistortionK1;
+    variationObj["lensDistortionK2"] = variation.lensDistortionK2;
+    variationObj["enableRotation"] = variation.enableRotation;
+    variationObj["maxRotationAngle"] = variation.maxRotationAngle;
+    variationObj["enableTranslation"] = variation.enableTranslation;
+    variationObj["maxTranslationX"] = variation.maxTranslationX;
+    variationObj["maxTranslationY"] = variation.maxTranslationY;
+    variationObj["enableSkinCondition"] = variation.enableSkinCondition;
+    variationObj["skinConditionFactor"] = variation.skinConditionFactor;
+    json["variation"] = variationObj;
     
     return json;
 }
@@ -121,6 +167,16 @@ void FingerprintParameters::fromJson(const QJsonObject& json) {
         orientation.verticalBiasRadius = orientationObj["verticalBiasRadius"].toDouble(100.0);
         orientation.anisotropyFactorX = orientationObj["anisotropyFactorX"].toDouble(1.0);
         orientation.anisotropyFactorY = orientationObj["anisotropyFactorY"].toDouble(1.0);
+        // Parâmetros v2.0
+        orientation.archAmplitude = orientationObj["archAmplitude"].toDouble(0.15);
+        orientation.tentedArchPeakInfluenceDecay = orientationObj["tentedArchPeakInfluenceDecay"].toDouble(0.06);
+        orientation.loopVerticalBiasStrength = orientationObj["loopVerticalBiasStrength"].toDouble(0.4);
+        orientation.loopEdgeBlendFactor = orientationObj["loopEdgeBlendFactor"].toDouble(0.4);
+        orientation.loopVerticalBiasRadiusFactor = orientationObj["loopVerticalBiasRadiusFactor"].toDouble(1.5);
+        orientation.whorlSpiralFactor = orientationObj["whorlSpiralFactor"].toDouble(0.12);
+        orientation.whorlEdgeDecayFactor = orientationObj["whorlEdgeDecayFactor"].toDouble(0.18);
+        orientation.smoothingSigma = orientationObj["smoothingSigma"].toDouble(6.0);
+        orientation.enableSmoothing = orientationObj["enableSmoothing"].toBool(true);
     }
     
     if (json.contains("ridge")) {
@@ -129,6 +185,44 @@ void FingerprintParameters::fromJson(const QJsonObject& json) {
         ridge.cacheDegrees = ridgeObj["cacheDegrees"].toInt(36);
         ridge.cacheFrequencies = ridgeObj["cacheFrequencies"].toInt(10);
         ridge.maxIterations = ridgeObj["maxIterations"].toInt(50);
+    }
+    
+    // Módulo 2: Parâmetros de Rendering
+    if (json.contains("rendering")) {
+        QJsonObject renderingObj = json["rendering"].toObject();
+        rendering.backgroundNoiseFrequency = renderingObj["backgroundNoiseFrequency"].toDouble(0.03);
+        rendering.backgroundNoiseAmplitude = renderingObj["backgroundNoiseAmplitude"].toDouble(0.02);
+        rendering.ridgeNoiseFrequency = renderingObj["ridgeNoiseFrequency"].toDouble(0.1);
+        rendering.ridgeNoiseAmplitude = renderingObj["ridgeNoiseAmplitude"].toDouble(0.05);
+        rendering.valleyNoiseFrequency = renderingObj["valleyNoiseFrequency"].toDouble(0.08);
+        rendering.valleyNoiseAmplitude = renderingObj["valleyNoiseAmplitude"].toDouble(0.02);
+        rendering.enablePores = renderingObj["enablePores"].toBool(true);
+        rendering.poreDensity = renderingObj["poreDensity"].toDouble(0.0015);
+        rendering.minPoreSize = renderingObj["minPoreSize"].toDouble(0.5);
+        rendering.maxPoreSize = renderingObj["maxPoreSize"].toDouble(1.0);
+        rendering.minPoreIntensity = renderingObj["minPoreIntensity"].toDouble(0.02);
+        rendering.maxPoreIntensity = renderingObj["maxPoreIntensity"].toDouble(0.04);
+        rendering.finalBlurSigma = renderingObj["finalBlurSigma"].toDouble(0.5);
+        rendering.contrastPercentileLower = renderingObj["contrastPercentileLower"].toDouble(2.0);
+        rendering.contrastPercentileUpper = renderingObj["contrastPercentileUpper"].toDouble(98.0);
+    }
+    
+    // Módulo 3: Parâmetros de Variação
+    if (json.contains("variation")) {
+        QJsonObject variationObj = json["variation"].toObject();
+        variation.enablePlasticDistortion = variationObj["enablePlasticDistortion"].toBool(true);
+        variation.plasticDistortionStrength = variationObj["plasticDistortionStrength"].toDouble(8.0);
+        variation.plasticDistortionBumps = variationObj["plasticDistortionBumps"].toInt(3);
+        variation.enableLensDistortion = variationObj["enableLensDistortion"].toBool(true);
+        variation.lensDistortionK1 = variationObj["lensDistortionK1"].toDouble(0.08);
+        variation.lensDistortionK2 = variationObj["lensDistortionK2"].toDouble(0.02);
+        variation.enableRotation = variationObj["enableRotation"].toBool(true);
+        variation.maxRotationAngle = variationObj["maxRotationAngle"].toDouble(15.0);
+        variation.enableTranslation = variationObj["enableTranslation"].toBool(true);
+        variation.maxTranslationX = variationObj["maxTranslationX"].toDouble(50.0);
+        variation.maxTranslationY = variationObj["maxTranslationY"].toDouble(50.0);
+        variation.enableSkinCondition = variationObj["enableSkinCondition"].toBool(true);
+        variation.skinConditionFactor = variationObj["skinConditionFactor"].toDouble(0.3);
     }
 }
 

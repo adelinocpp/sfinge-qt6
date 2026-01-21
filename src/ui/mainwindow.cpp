@@ -146,13 +146,26 @@ void MainWindow::setupStatusBar() {
 void MainWindow::connectSignals() {
     connect(m_orientationControl, &OrientationControlWidget::pointsChanged,
             this, [this]() {
-                qDebug() << "[MainWindow] Points changed, regenerating orientation map...";
-                onGenerateOrientation();
+                qDebug() << "[MainWindow] Points changed from control, regenerating orientation map...";
+                // Sincronizar pontos do control para o preview
+                m_singularPoints = m_orientationControl->getSingularPoints();
+                m_previewWidget->setSingularPoints(m_singularPoints);
+                onRegenerateOrientationWithSamePoints();
             });
     
     connect(m_orientationControl, &OrientationControlWidget::parametersChanged,
             this, [this]() {
                 qDebug() << "[MainWindow] Orientation parameters changed, regenerating with same points...";
+                onRegenerateOrientationWithSamePoints();
+            });
+    
+    // Conectar sinais do PreviewWidget para arrastar pontos e menu de contexto
+    connect(m_previewWidget, &PreviewWidget::singularPointsChanged,
+            this, [this]() {
+                qDebug() << "[MainWindow] Points changed from preview (drag/context menu)";
+                // Sincronizar pontos do preview para o control e regenerar
+                m_singularPoints = m_previewWidget->getSingularPoints();
+                m_orientationControl->setSingularPoints(m_singularPoints);
                 onRegenerateOrientationWithSamePoints();
             });
 }
@@ -201,6 +214,9 @@ void MainWindow::onGenerateOrientation() {
     
     QImage image = m_generator->generateOrientationVisualization();
     updatePreview(image);
+    
+    // Sincronizar pontos com o PreviewWidget para permitir arrastar
+    m_previewWidget->setSingularPoints(m_singularPoints);
 }
 
 void MainWindow::onRegenerateOrientationWithSamePoints() {

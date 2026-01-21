@@ -1,4 +1,3 @@
-#include <QApplication>
 #include <QCoreApplication>
 #include <QCommandLineParser>
 #include <QCommandLineOption>
@@ -7,7 +6,6 @@
 #include <QElapsedTimer>
 #include <iostream>
 #include <iomanip>
-#include "ui/mainwindow.h"
 #include "core/batch_generator.h"
 
 static bool g_quietMode = false;
@@ -19,11 +17,10 @@ void quietMessageHandler(QtMsgType type, const QMessageLogContext&, const QStrin
 }
 
 void printUsage() {
-    std::cout << "SFINGE-Qt6 - Synthetic Fingerprint Generator\n\n";
+    std::cout << "SFINGE-Qt6 CLI - Synthetic Fingerprint Generator\n\n";
     std::cout << "Usage:\n";
-    std::cout << "  sfinge                          # Launch GUI\n";
-    std::cout << "  sfinge --batch [options]        # Batch generation (CLI)\n\n";
-    std::cout << "Batch Options:\n";
+    std::cout << "  sfinge-cli [options]\n\n";
+    std::cout << "Options:\n";
     std::cout << "  -n, --num <count>       Number of fingerprints (default: 10)\n";
     std::cout << "  -v, --versions <count>  Versions per fingerprint (default: 3)\n";
     std::cout << "  -o, --output <dir>      Output directory (default: ./output)\n";
@@ -37,15 +34,14 @@ void printUsage() {
     std::cout << "  -h, --help              Show this help\n";
 }
 
-int runBatchMode(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
     QCoreApplication app(argc, argv);
-    app.setApplicationName("SFINGE-Qt6");
+    app.setApplicationName("SFINGE-Qt6-CLI");
     app.setApplicationVersion("1.0.0");
     
     QCommandLineParser parser;
-    parser.setApplicationDescription("Synthetic Fingerprint Generator - Batch Mode");
+    parser.setApplicationDescription("Synthetic Fingerprint Generator - CLI Only");
     
-    parser.addOption(QCommandLineOption({"b", "batch"}, "Run in batch mode"));
     parser.addOption(QCommandLineOption({"n", "num"}, "Number of fingerprints", "count", "10"));
     parser.addOption(QCommandLineOption({"v", "versions"}, "Versions per fingerprint", "count", "3"));
     parser.addOption(QCommandLineOption({"o", "output"}, "Output directory", "dir", "./output"));
@@ -80,12 +76,13 @@ int runBatchMode(int argc, char *argv[]) {
     
     bool quietMode = parser.isSet("quiet");
     g_quietMode = quietMode;
+    config.quietMode = quietMode;
     
     if (quietMode) {
         qInstallMessageHandler(quietMessageHandler);
     }
     
-    std::cout << "=== SFINGE-Qt6 Batch Generation ===\n";
+    std::cout << "=== SFINGE-Qt6 CLI Batch Generation ===\n";
     std::cout << "Fingerprints: " << config.numFingerprints << "\n";
     std::cout << "Versions per FP: " << config.versionsPerFingerprint << "\n";
     std::cout << "Skip original: " << (config.skipOriginal ? "yes" : "no") << "\n";
@@ -133,37 +130,4 @@ int runBatchMode(int argc, char *argv[]) {
     bool success = generator.generateBatchParallel();
     
     return success ? 0 : 1;
-}
-
-int main(int argc, char *argv[]) {
-    // Check if batch mode is requested
-    bool batchMode = false;
-    for (int i = 1; i < argc; ++i) {
-        QString arg(argv[i]);
-        if (arg == "--batch" || arg == "-b") {
-            batchMode = true;
-            break;
-        }
-        if (arg == "--help" || arg == "-h") {
-            printUsage();
-            return 0;
-        }
-    }
-    
-    if (batchMode) {
-        return runBatchMode(argc, argv);
-    }
-    
-    // GUI mode
-    QApplication app(argc, argv);
-    
-    app.setOrganizationName("SFINGE");
-    app.setOrganizationDomain("sfinge.org");
-    app.setApplicationName("SFINGE-Qt6");
-    app.setApplicationVersion("1.0.0");
-    
-    SFinGe::MainWindow window;
-    window.show();
-    
-    return app.exec();
 }

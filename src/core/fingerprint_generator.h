@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QImage>
+#include <memory>
 #include "models/fingerprint_parameters.h"
 #include "models/singular_points.h"
 #include "shape_generator.h"
@@ -12,11 +13,15 @@
 
 namespace SFinGe {
 
+class TextureRenderer;
+class VariationEffects;
+
 class FingerprintGenerator : public QObject {
     Q_OBJECT
     
 public:
     explicit FingerprintGenerator(QObject* parent = nullptr);
+    ~FingerprintGenerator();
     
     void setParameters(const FingerprintParameters& params);
     void setSingularPoints(const SingularPoints& points);
@@ -27,10 +32,15 @@ public:
     QImage generateOrientationVisualization();
     QImage generateFingerprint();
     
+    // Módulo 3: Métodos para geração de impressão mestre e variações
+    QImage generateMasterprint();
+    QImage generateVariation(const QImage& masterImage, unsigned int seed);
+    
     QImage getShapeImage() const { return m_shapeImage; }
     QImage getDensityImage() const { return m_densityImage; }
     QImage getOrientationImage() const { return m_orientationImage; }
     QImage getFingerprintImage() const { return m_fingerprintImage; }
+    QImage getMasterprintImage() const { return m_masterprintImage; }
     
 signals:
     void progressChanged(int percentage, const QString& message);
@@ -50,6 +60,10 @@ private:
     QImage m_densityImage;
     QImage m_orientationImage;
     QImage m_fingerprintImage;
+    QImage m_masterprintImage;
+    
+    // Seed para reprodutibilidade
+    unsigned int m_currentSeed;
 };
 
 }

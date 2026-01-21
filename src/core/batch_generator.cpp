@@ -10,6 +10,9 @@
 #include <QMetaObject>
 #include <QDebug>
 #include <cmath>
+#include <random>
+#include <thread>
+#include <vector>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -129,6 +132,144 @@ bool BatchGenerator::generateBatch() {
     return !m_cancelled;
 }
 
+bool BatchGenerator::generateBatchParallel() {
+    m_cancelled = false;
+    m_generated.storeRelaxed(0);
+    m_timer.start();
+    
+    // Criar diretório de saída
+    QDir dir(m_config.outputDirectory);
+    if (!dir.exists()) {
+        if (!dir.mkpath(".")) {
+            emit error(tr("Failed to create output directory"));
+            return false;
+        }
+    }
+    
+    int numWorkers = m_numWorkers > 0 ? m_numWorkers : QThread::idealThreadCount();
+    int imagesPerFingerprint = m_config.versionsPerFingerprint + (m_config.skipOriginal ? 0 : 1);
+    int totalImages = m_config.numFingerprints * imagesPerFingerprint;
+    
+    if (!m_config.quietMode) {
+        qDebug() << "Starting parallel batch generation with" << numWorkers << "workers";
+        qDebug() << "Total fingerprints:" << m_config.numFingerprints << "Total images:" << totalImages;
+    }
+    
+    // Pré-criar todas as instâncias de impressão digital
+    std::vector<FingerprintInstance> instances(m_config.numFingerprints);
+    for (int i = 0; i < m_config.numFingerprints && !m_cancelled; ++i) {
+        instances[i] = createBaseFingerprint(i);
+    }
+    
+    // Criar fila de tarefas para geração das imagens base (v0)
+    // Cada tarefa gera uma impressão base e todas as suas versões
+    struct BaseTask {
+        int fpIndex;
+        FingerprintInstance instance;
+    };
+    
+    QQueue<BaseTask> baseTasks;
+    for (int i = 0; i < m_config.numFingerprints; ++i) {
+        baseTasks.enqueue({i, instances[i]});
+    }
+    
+    QMutex taskMutex;
+    QMutex progressMutex;
+    QAtomicInt completedFps(0);
+    
+    // Função de processamento para cada worker
+    auto workerFunc = [&]() {
+        // Cada thread precisa de seu próprio FingerprintGenerator
+        FingerprintGenerator localGenerator;
+        
+        while (!m_cancelled) {
+            BaseTask task;
+            bool hasTask = false;
+            
+            {
+                QMutexLocker locker(&taskMutex);
+                if (!baseTasks.isEmpty()) {
+                    task = baseTasks.dequeue();
+                    hasTask = true;
+                }
+            }
+            
+            if (!hasTask) break;
+            
+            // Configurar gerador local
+            localGenerator.setParameters(task.instance.baseParams);
+            localGenerator.setSingularPoints(task.instance.basePoints);
+            
+            // Gerar imagem base
+            QImage baseFingerprint = localGenerator.generateFingerprint();
+            
+            // Gerar todas as versões desta impressão
+            int startIdx = m_config.skipOriginal ? 1 : 0;
+            for (int verIdx = startIdx; verIdx <= m_config.versionsPerFingerprint && !m_cancelled; ++verIdx) {
+                QImage transformedFingerprint;
+                
+                if (verIdx == 0) {
+                    transformedFingerprint = baseFingerprint.copy();
+                    transformedFingerprint.setDotsPerMeterX(500 * 39.3701);
+                    transformedFingerprint.setDotsPerMeterY(500 * 39.3701);
+                } else {
+                    VersionTransform transform = generateVersionTransform(verIdx);
+                    transformedFingerprint = applyVersionTransforms(baseFingerprint, transform);
+                }
+                
+                if (m_config.applyEllipticalMask) {
+                    transformedFingerprint = applyEllipticalMask(transformedFingerprint);
+                }
+                
+                // Salvar imagem
+                if (!saveFingerprint(transformedFingerprint, task.instance, task.fpIndex, verIdx)) {
+                    qWarning() << "Failed to save fingerprint" << task.fpIndex + 1 << "version" << verIdx;
+                    continue;
+                }
+                
+                // Salvar parâmetros se solicitado
+                if (m_config.saveParameters) {
+                    int actualIndex = m_config.startIndex + task.fpIndex;
+                    QString paramFile = QString("%1/%2_%3_v%4_params.json")
+                        .arg(m_config.outputDirectory)
+                        .arg(m_config.filenamePrefix)
+                        .arg(actualIndex, 4, 10, QChar('0'))
+                        .arg(verIdx);
+                    saveParameters(task.instance.baseParams, task.instance.basePoints, paramFile);
+                }
+                
+                m_generated.fetchAndAddRelaxed(1);
+            }
+            
+            // Emitir progresso ao completar cada digital
+            int fpCompleted = completedFps.fetchAndAddRelaxed(1) + 1;
+            int imgCompleted = m_generated.loadRelaxed();
+            {
+                QMutexLocker locker(&progressMutex);
+                emit progressUpdated(fpCompleted, m_config.numFingerprints, QString::number(imgCompleted));
+            }
+        }
+    };
+    
+    // Criar e iniciar threads
+    std::vector<std::thread> threads;
+    for (int i = 0; i < numWorkers; ++i) {
+        threads.emplace_back(workerFunc);
+    }
+    
+    // Aguardar conclusão
+    for (auto& t : threads) {
+        t.join();
+    }
+    
+    int generated = m_generated.loadRelaxed();
+    if (!m_cancelled) {
+        emit batchCompleted(generated);
+    }
+    
+    return !m_cancelled;
+}
+
 void BatchGenerator::cancel() {
     m_cancelled = true;
 }
@@ -146,7 +287,7 @@ void BatchGenerator::WorkerThread::stop() {
 }
 
 void BatchGenerator::WorkerThread::run() {
-    qDebug() << "Worker" << m_workerId << "started processing";
+    if (!m_generator->m_config.quietMode) qDebug() << "Worker" << m_workerId << "started processing";
     int tasksProcessed = 0;
     
     while (m_running && !m_generator->m_cancelled) {
@@ -206,10 +347,11 @@ void BatchGenerator::WorkerThread::run() {
             
             // Salvar parâmetros se solicitado
             if (m_generator->m_config.saveParameters) {
+                int actualIndex = m_generator->m_config.startIndex + task.fpIndex;
                 QString paramFile = QString("%1/%2_%3_v%4_params.json")
                     .arg(m_generator->m_config.outputDirectory)
                     .arg(m_generator->m_config.filenamePrefix)
-                    .arg(task.fpIndex + 1, 3, 10, QChar('0'))
+                    .arg(actualIndex, 4, 10, QChar('0'))
                     .arg(task.versionIndex);
                     
                 m_generator->saveParameters(task.instance.baseParams, task.instance.basePoints, paramFile);
@@ -236,8 +378,6 @@ FingerprintInstance BatchGenerator::createBaseFingerprint(int index) {
     instance.identifier = QString("FP_%1").arg(index + 1, 3, 10, QChar('0'));
     
     // Parâmetros base - GERAR IMPRESSÃO 1000x1200px @ 500 DPI
-    // width = left + right = 1000
-    // height = top + middle + bottom = 1200
     instance.baseParams.reset();
     
     auto* rng = QRandomGenerator::global();
@@ -248,28 +388,31 @@ FingerprintInstance BatchGenerator::createBaseFingerprint(int index) {
     instance.baseParams.shape.top = 480 + rng->bounded(-30, 31);
     instance.baseParams.shape.middle = 240 + rng->bounded(-20, 21);
     instance.baseParams.shape.bottom = 480 + rng->bounded(-30, 31);
-    // Total: width = left+right ≈ 1000, height = top+middle+bottom ≈ 1200
     
     // Gerar pontos singulares baseados no tipo de impressão
     int width = instance.baseParams.shape.left + instance.baseParams.shape.right;
     int height = instance.baseParams.shape.top + instance.baseParams.shape.middle + 
                  instance.baseParams.shape.bottom;
     
-    // Selecionar tipo por distribuição populacional (sempre ativo)
+    // Selecionar tipo por distribuição populacional
     FingerprintClass selectedClass = selectClassByPopulation();
     
     instance.basePoints.generateRandomPoints(selectedClass, width, height);
     instance.baseParams.classification.fingerprintClass = selectedClass;
     
+    // Zerar edge blend na geração em massa
+    instance.baseParams.orientation.loopEdgeBlendFactor = 0.0;
+    instance.baseParams.orientation.whorlEdgeDecayFactor = 0.0;
+    
+    // Modo quiet para processamento em lote
+    instance.baseParams.orientation.quietMode = m_config.quietMode;
+    
     // Randomizar parâmetros de orientação para presilhas
     if (selectedClass == FingerprintClass::RightLoop || selectedClass == FingerprintClass::LeftLoop) {
-        // Convergência: 0 a 0.25, raio 0 a 40
         instance.baseParams.orientation.coreConvergenceStrength = rng->generateDouble() * 0.25;
-        instance.baseParams.orientation.coreConvergenceRadius = rng->bounded(41);  // 0 a 40
-        
-        // Vertical bias: 0 a 0.35, raio 0 a 40
+        instance.baseParams.orientation.coreConvergenceRadius = rng->bounded(41);
         instance.baseParams.orientation.verticalBiasStrength = rng->generateDouble() * 0.35;
-        instance.baseParams.orientation.verticalBiasRadius = rng->bounded(41);  // 0 a 40
+        instance.baseParams.orientation.verticalBiasRadius = rng->bounded(41);
     }
     
     return instance;
@@ -288,41 +431,35 @@ VersionTransform BatchGenerator::generateVersionTransform(int versionIndex) cons
     // Nível de ruído (0.03 a 0.08) - PERCEPTÍVEL
     transform.noiseLevel = 0.03 + rng->generateDouble() * 0.05;
     
-    // Distorção de lente: BARREL (+) ou PINCUSHION (-)
-    // 50% chance de cada tipo, magnitude 0.05 a 0.12 - PERCEPTÍVEL
-    transform.usePincushion = (rng->generateDouble() < 0.5);
-    double magnitude = 0.05 + rng->generateDouble() * 0.07;
-    transform.lensDistortion = transform.usePincushion ? -magnitude : magnitude;
+    // Distorção de lente: PINCUSHION (sempre true)
+    // Range dobrado: -0.16 a +0.16
+    transform.usePincushion = true;
+    double magnitude = 0.08 + rng->generateDouble() * 0.08;  // 0.08 a 0.16
+    transform.lensDistortion = (rng->generateDouble() < 0.5) ? -magnitude : magnitude;
     
-    // Deslocamento homográfico (-15 a +15 pixels em X e Y) - PERCEPTÍVEL
+    // Deslocamento homográfico (-20 a +20 pixels em X e Y)
     transform.homographyShift = QPointF(
-        (rng->generateDouble() - 0.5) * 30.0,
-        (rng->generateDouble() - 0.5) * 30.0
+        (rng->generateDouble() - 0.5) * 40.0,
+        (rng->generateDouble() - 0.5) * 40.0
     );
     
-    // Ângulo de perspectiva homográfica (-8 a +8 graus) - PERCEPTÍVEL
-    transform.homographyAngle = (rng->generateDouble() - 0.5) * 16.0;
-    
-    // Blur circular aleatório (raio 100-300px, distância 35-300px do centro)
-    transform.applyBlur = true;
-    transform.blurRadius = 25 + rng->bounded(126);  // 25 a 150
-    
-    // Distância do centro (35-300px) e ângulo aleatório (0-360°)
-    double blurDistance = 35.0 + rng->generateDouble() * 265.0;
-    double blurAngle = rng->generateDouble() * 2.0 * M_PI;
-    
-    // Centro da imagem base (~1000x1200)
-    double imageCenterX = 500.0;  // ~width/2
-    double imageCenterY = 600.0;  // ~height/2
-    
-    // Calcular posição do centro do blur
-    transform.blurCenter = QPointF(
-        imageCenterX + blurDistance * std::cos(blurAngle),
-        imageCenterY + blurDistance * std::sin(blurAngle)
-    );
+    // Ângulo de perspectiva homográfica (-10 a +10 graus)
+    transform.homographyAngle = (rng->generateDouble() - 0.5) * 20.0;
     
     // Recorte final será 500x600 (largura x altura)
     transform.cropRegion = QRect(0, 0, 500, 600);
+    
+    // Blur circular aleatório - centro DENTRO do cropRegion
+    transform.applyBlur = true;
+    transform.blurRadius = 25 + rng->bounded(126);  // 25 a 150
+    
+    // Centro do blur dentro do cropRegion (margem de 50px das bordas)
+    int cropW = transform.cropRegion.width();
+    int cropH = transform.cropRegion.height();
+    transform.blurCenter = QPointF(
+        50.0 + rng->generateDouble() * (cropW - 100.0),  // 50 a 450
+        50.0 + rng->generateDouble() * (cropH - 100.0)   // 50 a 550
+    );
     
     return transform;
 }
@@ -679,10 +816,12 @@ FingerprintClass BatchGenerator::selectClassByPopulation() const {
 
 bool BatchGenerator::saveFingerprint(const QImage& image, const FingerprintInstance& instance,
                                     int fpIndex, int versionIndex) {
+    // Usar startIndex para calcular o índice real da impressão
+    int actualIndex = m_config.startIndex + fpIndex;
     QString filename = QString("%1/%2_%3_v%4.png")
         .arg(m_config.outputDirectory)
         .arg(m_config.filenamePrefix)
-        .arg(fpIndex + 1, 4, 10, QChar('0'))
+        .arg(actualIndex, 4, 10, QChar('0'))
         .arg(versionIndex, 2, 10, QChar('0'));
     
     return image.save(filename);

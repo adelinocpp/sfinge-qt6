@@ -42,9 +42,14 @@
 
 
 *.txt
+!CMakeLists.txt
 *.md
 !README.md
 scripts/*.md
 docs
 build
 build-debug
+legado
+deploy
+tests
+*.py

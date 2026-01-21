@@ -45,6 +45,12 @@ void BatchDialog::setupUi() {
     m_versionsSpinBox->setValue(3);
     quantityLayout->addRow(tr("Versions per fingerprint:"), m_versionsSpinBox);
     
+    m_startIndexSpinBox = new QSpinBox(this);
+    m_startIndexSpinBox->setRange(0, 999999);
+    m_startIndexSpinBox->setValue(0);
+    m_startIndexSpinBox->setToolTip(tr("Starting index for fingerprint numbering (e.g., 0 = fingerprint_0000, 100 = fingerprint_0100)"));
+    quantityLayout->addRow(tr("Start index:"), m_startIndexSpinBox);
+    
     mainLayout->addWidget(quantityGroup);
     
     // Configuração de saída
@@ -131,6 +137,7 @@ void BatchDialog::onGenerate() {
     BatchConfig config;
     config.numFingerprints = m_numFingerprintsSpinBox->value();
     config.versionsPerFingerprint = m_versionsSpinBox->value();
+    config.startIndex = m_startIndexSpinBox->value();
     config.outputDirectory = directory;
     config.filenamePrefix = m_prefixEdit->text();
     config.usePopulationDistribution = true;

@@ -25,6 +25,9 @@ public:
     void removeCore(int index);
     void removeDelta(int index);
     
+    void updateCore(int index, double x, double y);
+    void updateDelta(int index, double x, double y);
+    
     void clearCores();
     void clearDeltas();
     void clearAll();

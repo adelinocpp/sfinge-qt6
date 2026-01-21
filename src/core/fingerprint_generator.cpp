@@ -1,9 +1,21 @@
 #include "fingerprint_generator.h"
+#include "rendering/texture_renderer.h"
+#include "variation/variation_effects.h"
+#include <QDebug>
+#include <random>
 
 namespace SFinGe {
 
 FingerprintGenerator::FingerprintGenerator(QObject* parent)
-    : QObject(parent) {
+    : QObject(parent)
+    , m_currentSeed(0)
+{
+    // Inicializar seed com valor aleatório
+    std::random_device rd;
+    m_currentSeed = rd();
+}
+
+FingerprintGenerator::~FingerprintGenerator() {
 }
 
 void FingerprintGenerator::setParameters(const FingerprintParameters& params) {
@@ -97,7 +109,7 @@ QImage FingerprintGenerator::generateFingerprint() {
     
     emit progressChanged(70, "Generating ridge pattern...");
     
-    m_ridgeGenerator.setParameters(m_params.ridge, m_params.density);
+    m_ridgeGenerator.setParameters(m_params.ridge, m_params.density, m_params.rendering, m_params.variation);
     m_ridgeGenerator.setOrientationMap(m_orientationGenerator.getOrientationMap(),
                                       m_shapeGenerator.getWidth(),
                                       m_shapeGenerator.getHeight());
@@ -115,6 +127,92 @@ QImage FingerprintGenerator::generateFingerprint() {
     emit generationComplete();
     
     return m_fingerprintImage;
+}
+
+QImage FingerprintGenerator::generateMasterprint() {
+    emit progressChanged(0, "Starting masterprint generation...");
+    
+    // Gerar etapas básicas
+    generateShape();
+    generateDensity();
+    generateOrientation();
+    
+    emit progressChanged(70, "Generating ridge pattern...");
+    
+    m_ridgeGenerator.setParameters(m_params.ridge, m_params.density, m_params.rendering, m_params.variation);
+    m_ridgeGenerator.setOrientationMap(m_orientationGenerator.getOrientationMap(),
+                                      m_shapeGenerator.getWidth(),
+                                      m_shapeGenerator.getHeight());
+    m_ridgeGenerator.setDensityMap(m_densityGenerator.getDensityMap());
+    m_ridgeGenerator.setShapeMap(m_shapeGenerator.getShapeMap());
+    
+    // Obter mapa de cristas binário
+    QImage ridgeImage = m_ridgeGenerator.generate();
+    
+    emit progressChanged(85, "Applying advanced rendering...");
+    
+    // Módulo 2: Aplicar renderização avançada com TextureRenderer
+    int width = m_shapeGenerator.getWidth();
+    int height = m_shapeGenerator.getHeight();
+    
+    // Converter ridgeImage para vetor de floats
+    std::vector<float> ridgeMap(width * height);
+    QImage grayscale = ridgeImage.convertToFormat(QImage::Format_Grayscale8);
+    for (int j = 0; j < height; ++j) {
+        const uchar* line = grayscale.constScanLine(j);
+        for (int i = 0; i < width; ++i) {
+            ridgeMap[j * width + i] = line[i] / 255.0f;
+        }
+    }
+    
+    // Criar TextureRenderer e aplicar
+    TextureRenderer renderer(m_params.rendering, width, height, m_currentSeed);
+    auto renderedData = renderer.render(ridgeMap, m_shapeGenerator.getShapeMap());
+    
+    // Converter de volta para QImage
+    m_masterprintImage = QImage(width, height, QImage::Format_Grayscale8);
+    for (int j = 0; j < height; ++j) {
+        uchar* line = m_masterprintImage.scanLine(j);
+        for (int i = 0; i < width; ++i) {
+            float val = std::clamp(renderedData[j * width + i], 0.0f, 1.0f);
+            line[i] = static_cast<uchar>(val * 255.0f);
+        }
+    }
+    
+    if (!m_masterprintImage.isNull()) {
+        m_masterprintImage.setDotsPerMeterX(500 * 39.3701);
+        m_masterprintImage.setDotsPerMeterY(500 * 39.3701);
+    }
+    
+    emit progressChanged(100, "Masterprint generation complete!");
+    emit generationComplete();
+    
+    qDebug() << "[FingerprintGenerator] Masterprint gerada com sucesso";
+    return m_masterprintImage;
+}
+
+QImage FingerprintGenerator::generateVariation(const QImage& masterImage, unsigned int seed) {
+    if (masterImage.isNull()) {
+        qWarning() << "[FingerprintGenerator] Imagem mestre é nula. Não é possível gerar variação.";
+        emit generationError("Master image is null. Cannot generate variation.");
+        return QImage();
+    }
+    
+    emit progressChanged(10, "Applying variations...");
+    
+    // Módulo 3: Aplicar efeitos de variação
+    VariationEffects variationEffects(m_params.variation, seed);
+    QImage variationImage = variationEffects.apply(masterImage);
+    
+    if (!variationImage.isNull()) {
+        variationImage.setDotsPerMeterX(500 * 39.3701);
+        variationImage.setDotsPerMeterY(500 * 39.3701);
+    }
+    
+    emit progressChanged(100, "Variation generation complete!");
+    
+    qDebug() << "[FingerprintGenerator] Variação gerada com seed:" << seed;
+    return variationImage;
 }
 
 }

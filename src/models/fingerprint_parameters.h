@@ -17,11 +17,13 @@ enum class FingerType {
 enum class FingerprintClass {
     None = 0,
     Arch = 1,           // Arco: sem core, sem delta
-    TentedArch = 2,     // Arco Tendido: 1 core, sem delta
+    TentedArch = 2,     // Arco Tendido: 1 core, 1 delta
     LeftLoop = 3,       // Presilha Esquerda: 1 core, 1 delta
     RightLoop = 4,      // Presilha Direita: 1 core, 1 delta
-    Whorl = 5,          // Verticílio: 2 cores, 2 deltas
-    TwinLoop = 6        // Loop Duplo: 2 cores, 2 deltas
+    Whorl = 5,          // Verticílio Plano: 2 cores, 2 deltas
+    TwinLoop = 6,       // Loop Duplo (Double Loop): 1 core, 2 deltas
+    CentralPocket = 7,  // Bolsa Central: 1 core, 2 deltas (whorl pequeno no centro)
+    Accidental = 8      // Acidental: combinação de padrões (2+ deltas)
 };
 
 struct ShapeParameters {
@@ -60,6 +62,85 @@ struct OrientationParameters {
     int fomfeOrderM = 5;
     int fomfeOrderN = 5;
     int legendreOrder = 5;
+    
+    // --- PARÂMETROS DE ARCH ---
+    double archAmplitude = 0.22; // Amplitude da ondulação senoidal (0.15 a 0.30)
+    
+    // --- PARÂMETROS DE TENTED ARCH ---
+    double tentedArchPeakInfluenceDecay = 0.12; // Fator de decaimento da influência do pico (0.08 a 0.18)
+    
+    // --- PARÂMETROS DE LOOP ---
+    double loopVerticalBiasStrength = 0.4; // Força do bias que curva o loop para baixo
+    double loopEdgeBlendFactor = 0.4; // Força da transição para horizontal nas bordas
+    double loopVerticalBiasRadiusFactor = 1.5; // Fator do raio de influência (relativo à altura)
+    
+    // --- PARÂMETROS DE WHORL ---
+    double whorlSpiralFactor = 0.12; // Fator de espiral (muito sutil)
+    double whorlEdgeDecayFactor = 0.18; // Decaimento da transição para as bordas
+    
+    // --- PARÂMETROS DE TWIN LOOP ---
+    double twinLoopSmoothing = 7.0; // Sigma de suavização específico
+    
+    // --- PARÂMETROS DE CENTRAL POCKET ---
+    double centralPocketConcentration = 0.06; // Concentração da bolsa central
+    
+    // --- PARÂMETROS DE ACCIDENTAL ---
+    double accidentalIrregularity = 0.08; // Intensidade da irregularidade
+    
+    // --- SUAVIZAÇÃO ---
+    double smoothingSigma = 6.0; // Sigma para suavização gaussiana do campo
+    bool enableSmoothing = true; // Habilitar suavização do campo de orientação
+    
+    // --- MODO SILENCIOSO ---
+    bool quietMode = false; // Desabilitar mensagens de debug
+};
+
+// Módulo 2: Parâmetros de Rendering Avançado
+struct RenderingParameters {
+    // Parâmetros de Ruído
+    double backgroundNoiseFrequency = 0.03;
+    double backgroundNoiseAmplitude = 0.02;
+    double ridgeNoiseFrequency = 0.05;
+    double ridgeNoiseAmplitude = 0.02;
+    double valleyNoiseFrequency = 0.08;
+    double valleyNoiseAmplitude = 0.02;
+
+    // Parâmetros dos Poros
+    bool enablePores = true;
+    double poreDensity = 0.0015; // Poros por pixel de crista
+    double minPoreSize = 0.5; // Em pixels
+    double maxPoreSize = 1.0; // Em pixels
+    double minPoreIntensity = 0.02; // Aumento de brilho
+    double maxPoreIntensity = 0.04;
+
+    // Parâmetros de Renderização Final
+    double finalBlurSigma = 0.5;
+    double contrastPercentileLower = 2.0;
+    double contrastPercentileUpper = 98.0;
+};
+
+// Módulo 3: Parâmetros de Variação e Distorção
+struct VariationParameters {
+    // Distorção Plástica
+    bool enablePlasticDistortion = false;
+    double plasticDistortionStrength = 2.0;
+    int plasticDistortionBumps = 2;
+
+    // Distorção de Lente
+    bool enableLensDistortion = false;
+    double lensDistortionK1 = 0.02;
+    double lensDistortionK2 = 0.005;
+
+    // Rotação e Translação
+    bool enableRotation = false;
+    double maxRotationAngle = 5.0;
+    bool enableTranslation = false;
+    double maxTranslationX = 10.0;
+    double maxTranslationY = 10.0;
+
+    // Condição da Pele
+    bool enableSkinCondition = false;
+    double skinConditionFactor = 0.1;
 };
 
 struct ClassificationParameters {
@@ -82,6 +163,8 @@ public:
     OrientationParameters orientation;
     RidgeParameters ridge;
     ClassificationParameters classification;
+    RenderingParameters rendering;
+    VariationParameters variation;
     
     bool loadFromJson(const QString& filePath);
     bool saveToJson(const QString& filePath) const;

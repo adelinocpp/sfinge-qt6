@@ -35,9 +35,11 @@ struct VersionTransform {
 struct BatchConfig {
     int numFingerprints = 10;        // Número de impressões diferentes
     int versionsPerFingerprint = 3;  // Versões de cada impressão
+    int startIndex = 0;              // Índice inicial para numeração das impressões
     bool usePopulationDistribution = true;  // Sempre usar distribuição populacional
     bool skipOriginal = true;        // Excluir v0 (marcado por padrão)
     bool applyEllipticalMask = true; // Aplicar máscara elíptica com fade out (padrão: sim)
+    bool quietMode = false;          // Modo silencioso (sem debug)
     
     QString outputDirectory = ".";
     QString filenamePrefix = "fingerprint";
@@ -59,8 +61,10 @@ public:
     
     void setBatchConfig(const BatchConfig& config);
     BatchConfig getBatchConfig() const { return m_config; }
+    void setNumWorkers(int workers) { m_numWorkers = workers; }
     
     bool generateBatch();
+    bool generateBatchParallel();
     void cancel();
     
 signals:
@@ -115,6 +119,7 @@ private:
     bool m_cancelled;
     QElapsedTimer m_timer;
     qint64 m_firstImageTime;
+    int m_numWorkers = 0;
     
     // Variáveis para processamento com fila
     QAtomicInt m_generated;
