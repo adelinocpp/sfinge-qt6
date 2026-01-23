@@ -2,6 +2,8 @@
 
 Gerador de impressões digitais sintéticas multiplataforma usando C++ e Qt6.
 
+**Esse projeto é desenvolvido com apoio da FAPEMIG e Rede Mineira de Ciências Forenses através do RED-00120-23.**
+
 ## Características (pretendidas)
 
 - 🖥️ **Multiplataforma**: Linux, Windows 11, macOS
@@ -136,6 +138,13 @@ MIT License - Ver arquivo LICENSE
 
 - Projeto Original: SFINGE
 - Migração Qt6: Adelino Pinheiro Silva
+
+## 🙏 Agradecimentos
+
+- Fundação de Amparo à Pesquisa de Minas Gerais [FAPEMIG](https://fapemig.br/) 
+- Rede Mineira de Ciências Forenses [RMCF](https://www.instagram.com/rmcforense/) 
+- Comunidade **Qt** pelo excelente framework
+- Comunidade **Open Source** pelo suporte e contribuições
 
 ## Referências
 
