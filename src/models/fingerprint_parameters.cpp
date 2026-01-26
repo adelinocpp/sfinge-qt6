@@ -38,6 +38,18 @@ void FingerprintParameters::reset() {
     ridge.cacheDegrees = 36;      // FG_CACHE_DEG original
     ridge.cacheFrequencies = 10;  // Qualidade boa
     ridge.maxIterations = 180;     // Reduzido com early stopping
+    
+    // Parâmetros de Minutiae (padrão: método original)
+    minutiae.enableExplicitMinutiae = true;
+    minutiae.useContinuousPhase = false;  // IMPORTANTE: padrão é método original
+    minutiae.phaseNoiseLevel = 0.1;
+    minutiae.useQualityMask = false;
+    minutiae.minutiaeDensity = "low";
+    minutiae.customBifurcations = -1;
+    minutiae.customEndings = -1;
+    minutiae.coherenceThreshold = 0.5;
+    minutiae.qualityWindowSize = 16;
+    minutiae.frequencySmoothSigma = 10.0;
 }
 
 bool FingerprintParameters::validate() const {

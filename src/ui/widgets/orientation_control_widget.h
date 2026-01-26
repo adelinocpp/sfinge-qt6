@@ -10,6 +10,8 @@
 #include <QGroupBox>
 #include <QDoubleSpinBox>
 #include <QStackedWidget>
+#include <QCheckBox>
+#include <QComboBox>
 #include "models/singular_points.h"
 #include "models/fingerprint_parameters.h"
 
@@ -28,6 +30,7 @@ public:
     void setCurrentClass(FingerprintClass fpClass);
     void updateSingularPoints(SingularPoints& points) const;
     void updateOrientationParameters(OrientationParameters& params) const;
+    void updateMinutiaeParameters(MinutiaeParameters& params) const;
 
 signals:
     void pointsChanged();
@@ -88,6 +91,19 @@ private:
     
     // Parâmetros Accidental
     QDoubleSpinBox* m_accidentalIrregularity;
+    
+    // Minutiae Control
+    QCheckBox* m_continuousPhaseCheckBox;
+    QSlider* m_phaseNoiseSlider;
+    QLabel* m_phaseNoiseLabel;
+    QCheckBox* m_qualityMaskCheckBox;
+    QComboBox* m_minutiaeDensityCombo;
+    QSlider* m_coherenceThresholdSlider;
+    QLabel* m_coherenceThresholdLabel;
+    QSlider* m_qualityWindowSizeSlider;
+    QLabel* m_qualityWindowSizeLabel;
+    QSlider* m_frequencySmoothSlider;
+    QLabel* m_frequencySmoothLabel;
     
 private slots:
     void onCoreSelectionChanged();

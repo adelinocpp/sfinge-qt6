@@ -20,6 +20,13 @@ void printUsage() {
     std::cout << "  --skip-original         Skip v0 (original) images\n";
     std::cout << "  --no-mask               Disable elliptical mask\n";
     std::cout << "  --save-params           Save parameters JSON\n";
+    std::cout << "  --continuous-phase     Use continuous phase (improved method)\n";
+    std::cout << "  --phase-noise <level>   Phase noise level (0.0-1.0, default: 0.1)\n";
+    std::cout << "  --use-quality-mask     Use quality mask for minutiae\n";
+    std::cout << "  --minutiae-density <d>  Density: low/medium/high (default: low)\n";
+    std::cout << "  --coherence-threshold <t> Coherence threshold (0.0-1.0, default: 0.3)\n";
+    std::cout << "  --quality-window-size <s> Quality window size (default: 15)\n";
+    std::cout << "  --frequency-smooth-sigma <s> Frequency smooth sigma (default: 1.5)\n";
     std::cout << "  -q, --quiet             Suppress debug output\n";
     std::cout << "  -h, --help              Show this help\n";
 }
@@ -64,6 +71,27 @@ int main(int argc, char* argv[]) {
         else if (arg == "--save-params") {
             config.saveParameters = true;
         }
+        else if (arg == "--continuous-phase") {
+            config.minutiae.useContinuousPhase = true;
+        }
+        else if ((arg == "--phase-noise") && i + 1 < argc) {
+            config.minutiae.phaseNoiseLevel = std::stod(argv[++i]);
+        }
+        else if (arg == "--use-quality-mask") {
+            config.minutiae.useQualityMask = true;
+        }
+        else if ((arg == "--minutiae-density") && i + 1 < argc) {
+            config.minutiae.minutiaeDensity = argv[++i];
+        }
+        else if ((arg == "--coherence-threshold") && i + 1 < argc) {
+            config.minutiae.coherenceThreshold = std::stod(argv[++i]);
+        }
+        else if ((arg == "--quality-window-size") && i + 1 < argc) {
+            config.minutiae.qualityWindowSize = std::stoi(argv[++i]);
+        }
+        else if ((arg == "--frequency-smooth-sigma") && i + 1 < argc) {
+            config.minutiae.frequencySmoothSigma = std::stod(argv[++i]);
+        }
         else if (arg == "-q" || arg == "--quiet") {
             quietMode = true;
         }
@@ -79,6 +107,12 @@ int main(int argc, char* argv[]) {
     std::cout << "Skip original: " << (config.skipOriginal ? "yes" : "no") << "\n";
     std::cout << "Output: " << config.outputDirectory << "\n";
     std::cout << "Parallel jobs: " << jobs << "\n";
+    std::cout << "Minutiae method: " << (config.minutiae.useContinuousPhase ? "continuous phase" : "original") << "\n";
+    if (config.minutiae.useContinuousPhase) {
+        std::cout << "Phase noise: " << config.minutiae.phaseNoiseLevel << "\n";
+        std::cout << "Quality mask: " << (config.minutiae.useQualityMask ? "enabled" : "disabled") << "\n";
+        std::cout << "Minutiae density: " << config.minutiae.minutiaeDensity << "\n";
+    }
     std::cout << "==========================================\n\n";
     
     SFinGe::BatchGenerator generator;

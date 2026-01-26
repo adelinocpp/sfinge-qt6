@@ -72,6 +72,81 @@ void OrientationControlWidget::setupUi() {
     setupDynamicPanel();
     mainLayout->addWidget(m_dynamicGroup);
     
+    // Minutiae Control Group
+    QGroupBox* minutiaeGroup = new QGroupBox(tr("Minutiae Control"), this);
+    QVBoxLayout* minutiaeLayout = new QVBoxLayout(minutiaeGroup);
+    
+    // Toggle para método melhorado
+    QHBoxLayout* methodLayout = new QHBoxLayout();
+    m_continuousPhaseCheckBox = new QCheckBox(tr("Use Continuous Phase (Improved Method)"), this);
+    m_continuousPhaseCheckBox->setChecked(false);  // Padrão: método original
+    methodLayout->addWidget(m_continuousPhaseCheckBox);
+    minutiaeLayout->addLayout(methodLayout);
+    
+    // Phase Noise Control
+    QHBoxLayout* noiseLayout = new QHBoxLayout();
+    noiseLayout->addWidget(new QLabel(tr("Phase Noise Level:"), this));
+    m_phaseNoiseSlider = new QSlider(Qt::Horizontal, this);
+    m_phaseNoiseSlider->setRange(0, 50);  // 0% a 50%
+    m_phaseNoiseSlider->setValue(10);  // 10% padrão
+    m_phaseNoiseLabel = new QLabel("10%", this);
+    noiseLayout->addWidget(m_phaseNoiseSlider);
+    noiseLayout->addWidget(m_phaseNoiseLabel);
+    minutiaeLayout->addLayout(noiseLayout);
+    
+    // Quality Mask Control
+    QHBoxLayout* qualityLayout = new QHBoxLayout();
+    m_qualityMaskCheckBox = new QCheckBox(tr("Use Quality Mask"), this);
+    m_qualityMaskCheckBox->setChecked(true);
+    qualityLayout->addWidget(m_qualityMaskCheckBox);
+    minutiaeLayout->addLayout(qualityLayout);
+    
+    // Minutiae Density Control
+    QHBoxLayout* densityLayout = new QHBoxLayout();
+    densityLayout->addWidget(new QLabel(tr("Minutiae Density:"), this));
+    m_minutiaeDensityCombo = new QComboBox(this);
+    m_minutiaeDensityCombo->addItem("Low (25-30)");
+    m_minutiaeDensityCombo->addItem("Medium (40-50)");
+    m_minutiaeDensityCombo->addItem("High (60-80)");
+    m_minutiaeDensityCombo->setCurrentIndex(0);
+    densityLayout->addWidget(m_minutiaeDensityCombo);
+    densityLayout->addStretch();
+    minutiaeLayout->addLayout(densityLayout);
+    
+    // Coherence Threshold
+    QHBoxLayout* coherenceLayout = new QHBoxLayout();
+    coherenceLayout->addWidget(new QLabel(tr("Coherence Threshold:"), this));
+    m_coherenceThresholdSlider = new QSlider(Qt::Horizontal, this);
+    m_coherenceThresholdSlider->setRange(20, 80);  // 0.2 a 0.8
+    m_coherenceThresholdSlider->setValue(50);  // 0.5 padrão
+    m_coherenceThresholdLabel = new QLabel("0.5", this);
+    coherenceLayout->addWidget(m_coherenceThresholdSlider);
+    coherenceLayout->addWidget(m_coherenceThresholdLabel);
+    minutiaeLayout->addLayout(coherenceLayout);
+    
+    // Quality Window Size
+    QHBoxLayout* windowLayout = new QHBoxLayout();
+    windowLayout->addWidget(new QLabel(tr("Quality Window Size:"), this));
+    m_qualityWindowSizeSlider = new QSlider(Qt::Horizontal, this);
+    m_qualityWindowSizeSlider->setRange(8, 32);
+    m_qualityWindowSizeSlider->setValue(16);
+    m_qualityWindowSizeLabel = new QLabel("16px", this);
+    windowLayout->addWidget(m_qualityWindowSizeSlider);
+    windowLayout->addWidget(m_qualityWindowSizeLabel);
+    minutiaeLayout->addLayout(windowLayout);
+    
+    // Frequency Smooth Sigma
+    QHBoxLayout* smoothLayout = new QHBoxLayout();
+    smoothLayout->addWidget(new QLabel(tr("Frequency Smooth Sigma:"), this));
+    m_frequencySmoothSlider = new QSlider(Qt::Horizontal, this);
+    m_frequencySmoothSlider->setRange(5, 20);
+    m_frequencySmoothSlider->setValue(10);
+    m_frequencySmoothLabel = new QLabel("10.0", this);
+    smoothLayout->addWidget(m_frequencySmoothSlider);
+    smoothLayout->addWidget(m_frequencySmoothLabel);
+    minutiaeLayout->addLayout(smoothLayout);
+    
+    mainLayout->addWidget(minutiaeGroup);
     mainLayout->addStretch();
     
     connect(m_addCoreBtn, &QPushButton::clicked, this, &OrientationControlWidget::onAddCore);
@@ -81,6 +156,15 @@ void OrientationControlWidget::setupUi() {
     connect(m_suggestBtn, &QPushButton::clicked, this, &OrientationControlWidget::onSuggestPoints);
     connect(m_fpClassCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), 
             this, &OrientationControlWidget::onClassChanged);
+    
+    // Conectar sinais dos controles de minutiae
+    connect(m_continuousPhaseCheckBox, &QCheckBox::toggled, this, &OrientationControlWidget::onAdvancedParameterChanged);
+    connect(m_phaseNoiseSlider, &QSlider::valueChanged, this, &OrientationControlWidget::onAdvancedParameterChanged);
+    connect(m_qualityMaskCheckBox, &QCheckBox::toggled, this, &OrientationControlWidget::onAdvancedParameterChanged);
+    connect(m_minutiaeDensityCombo, &QComboBox::currentTextChanged, this, &OrientationControlWidget::onAdvancedParameterChanged);
+    connect(m_coherenceThresholdSlider, &QSlider::valueChanged, this, &OrientationControlWidget::onAdvancedParameterChanged);
+    connect(m_qualityWindowSizeSlider, &QSlider::valueChanged, this, &OrientationControlWidget::onAdvancedParameterChanged);
+    connect(m_frequencySmoothSlider, &QSlider::valueChanged, this, &OrientationControlWidget::onAdvancedParameterChanged);
     
     // Conexões para seleção de pontos
     connect(m_coreList, &QListWidget::currentRowChanged, this, &OrientationControlWidget::onCoreSelectionChanged);
@@ -262,6 +346,12 @@ void OrientationControlWidget::updateDynamicPanel(FingerprintClass fpClass) {
 }
 
 void OrientationControlWidget::onAdvancedParameterChanged() {
+    // Atualizar labels dos parâmetros avançados
+    m_phaseNoiseLabel->setText(QString::number(m_phaseNoiseSlider->value()) + "%");
+    m_coherenceThresholdLabel->setText(QString::number(m_coherenceThresholdSlider->value() / 100.0, 'f', 2));
+    m_qualityWindowSizeLabel->setText(QString::number(m_qualityWindowSizeSlider->value()) + "px");
+    m_frequencySmoothLabel->setText(QString::number(m_frequencySmoothSlider->value(), 'f', 1));
+    
     emit parametersChanged();
 }
 
@@ -275,6 +365,33 @@ void OrientationControlWidget::updateOrientationParameters(OrientationParameters
     params.twinLoopSmoothing = m_twinLoopSmoothing->value();
     params.centralPocketConcentration = m_centralPocketConcentration->value();
     params.accidentalIrregularity = m_accidentalIrregularity->value();
+}
+
+void OrientationControlWidget::updateMinutiaeParameters(MinutiaeParameters& params) const {
+    // Atualizar parâmetros de minutiae com valores da UI
+    params.useContinuousPhase = m_continuousPhaseCheckBox->isChecked();
+    params.phaseNoiseLevel = m_phaseNoiseSlider->value() / 100.0;  // Converter para 0.0-1.0
+    params.useQualityMask = m_qualityMaskCheckBox->isChecked();
+    
+    // Mapear densidade
+    QString densityText = m_minutiaeDensityCombo->currentText();
+    if (densityText.contains("Low")) {
+        params.minutiaeDensity = "low";
+        params.customBifurcations = 15;
+        params.customEndings = 10;
+    } else if (densityText.contains("Medium")) {
+        params.minutiaeDensity = "medium";
+        params.customBifurcations = 25;
+        params.customEndings = 20;
+    } else if (densityText.contains("High")) {
+        params.minutiaeDensity = "high";
+        params.customBifurcations = 40;
+        params.customEndings = 30;
+    }
+    
+    params.coherenceThreshold = m_coherenceThresholdSlider->value() / 100.0;  // Converter para 0.0-1.0
+    params.qualityWindowSize = m_qualityWindowSizeSlider->value();
+    params.frequencySmoothSigma = m_frequencySmoothSlider->value();
 }
 
 void OrientationControlWidget::setSingularPoints(const SingularPoints& points) {

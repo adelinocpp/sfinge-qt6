@@ -43,6 +43,13 @@ set(CORE_SOURCES
     # Módulo 3: Variação e Distorção
     src/core/variation/variation_effects.h
     src/core/variation/variation_effects.cpp
+    # Módulo 4: Controle de Minutiae Melhorado
+    src/core/phase_field_generator.h
+    src/core/phase_field_generator.cpp
+    src/core/quality_mask_generator.h
+    src/core/quality_mask_generator.cpp
+    src/core/frequency_field_smoother.h
+    src/core/frequency_field_smoother.cpp
 )
 
 set(MODEL_SOURCES
@@ -131,56 +138,34 @@ install(TARGETS sfinge-qt6
     RUNTIME DESTINATION bin
 )
 
-# CLI-only version (uses Qt Gui for QImage)
-add_executable(sfinge-cli
-    src/cli_main.cpp
-    src/core/batch_generator.cpp
-    ${CORE_SOURCES}
-    ${MODEL_SOURCES}
-)
+# CLI-only version (uses Qt Gui for QImage) - DESABILITADO TEMPORARIAMENTE
+# CLI deve usar o projeto sfinge-cli-pure independente
+# add_executable(sfinge-cli
+#     src/cli_main.cpp
+#     src/core/batch_generator.cpp
+#     ${CORE_SOURCES}
+#     ${MODEL_SOURCES}
+# )
 
-target_link_libraries(sfinge-cli
-    Qt6::Core
-    Qt6::Gui
-)
+# target_link_libraries(sfinge-cli
+#     Qt6::Core
+#     Qt6::Gui
+# )
 
-target_include_directories(sfinge-cli PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
+# target_include_directories(sfinge-cli PRIVATE
+#     ${CMAKE_CURRENT_SOURCE_DIR}/src
+# )
 
-if(UNIX AND NOT APPLE)
-    set_target_properties(sfinge-cli PROPERTIES
-        OUTPUT_NAME "sfinge-cli"
-    )
-endif()
+# if(UNIX AND NOT APPLE)
+#     set_target_properties(sfinge-cli PROPERTIES
+#         OUTPUT_NAME "sfinge-cli"
+#     )
+# endif()
 
-install(TARGETS sfinge-cli
-    RUNTIME DESTINATION bin
-)
+# install(TARGETS sfinge-cli
+#     RUNTIME DESTINATION bin
+# )
 
-# Pure CLI version (no Qt)
-add_executable(sfinge-pure
-    src/cli_pure_main.cpp
-    src/core/image_buffer.cpp
-    src/core/fingerprint_generator_pure.cpp
-    src/core/shape_generator.cpp
-    src/core/density_generator.cpp
-    src/core/orientation_generator.cpp
-    src/core/ridge_generator.cpp
-    src/models/fingerprint_parameters.cpp
-    src/models/singular_points.cpp
-)
-
-target_include_directories(sfinge-pure PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-
-if(UNIX AND NOT APPLE)
-    set_target_properties(sfinge-pure PROPERTIES
-        OUTPUT_NAME "sfinge-pure"
-    )
-endif()
-
-install(TARGETS sfinge-pure
-    RUNTIME DESTINATION bin
-)
+# CLI puro deve ser um projeto independente
+# Removido do projeto principal para evitar conflitos
+# TODO: Criar diretório sfinge-cli-pure separado com sua própria estrutura

@@ -243,15 +243,28 @@ void MinutiaeGenerator::insertBifurcation(std::vector<float>& ridgeMap, const Mi
 }
 
 void MinutiaeGenerator::applyMinutiae(std::vector<float>& ridgeMap) {
-    if (!m_params.enableExplicitMinutiae || m_minutiae.empty()) {
+    if ((!m_params.enableExplicitMinutiae && !m_params.useContinuousPhase) || m_minutiae.empty()) {
         return;
     }
     
-    for (const auto& m : m_minutiae) {
-        if (m.type == MinutiaeType::RidgeEnding) {
-            insertRidgeEnding(ridgeMap, m);
-        } else {
-            insertBifurcation(ridgeMap, m);
+    // Método melhorado: aplicar com base no tipo de método
+    if (m_params.useContinuousPhase) {
+        // Método melhorado com campo de fase contínuo
+        for (const auto& m : m_minutiae) {
+            if (m.type == MinutiaeType::RidgeEnding) {
+                insertRidgeEndingImproved(ridgeMap, m);
+            } else {
+                insertBifurcationImproved(ridgeMap, m);
+            }
+        }
+    } else {
+        // Método original
+        for (const auto& m : m_minutiae) {
+            if (m.type == MinutiaeType::RidgeEnding) {
+                insertRidgeEnding(ridgeMap, m);
+            } else {
+                insertBifurcation(ridgeMap, m);
+            }
         }
     }
 }

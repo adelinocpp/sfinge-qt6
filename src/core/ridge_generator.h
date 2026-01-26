@@ -7,6 +7,9 @@
 #include "models/fingerprint_parameters.h"
 #include "gabor_filter.h"
 #include "minutiae_generator.h"
+#include "phase_field_generator.h"
+#include "quality_mask_generator.h"
+#include "frequency_field_smoother.h"
 
 namespace SFinGe {
 
@@ -34,6 +37,8 @@ public:
     
 private:
     void generateRidgeMap();
+    void generateRidgeMapOriginal();
+    void generateRidgeMapImproved();
     double applyFilter(const GaborFilter& filter, int x, int y, const std::vector<float>& image);
     std::vector<float> renderFingerprint(const std::vector<float>& binaryRidge);
     
@@ -65,6 +70,11 @@ private:
     std::vector<int> m_perm;
     std::mt19937 m_rng;
     MinutiaeGenerator m_minutiaeGenerator;
+    
+    // Novos geradores para controle melhorado
+    PhaseFieldGenerator m_phaseGenerator;
+    QualityMaskGenerator m_qualityGenerator;
+    FrequencyFieldSmoother m_frequencySmoother;
 };
 
 }

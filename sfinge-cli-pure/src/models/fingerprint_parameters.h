@@ -139,7 +139,21 @@ struct MinutiaeStatistics {
 };
 
 struct MinutiaeParameters {
-    bool enableExplicitMinutiae = false;  // Desabilitado para teste
+    // Controle de método original vs melhorado
+    bool useContinuousPhase = false;  // false = método original (random phase)
+    
+    // Parâmetros do método melhorado
+    double phaseNoiseLevel = 0.1;    // Nível de ruído no campo de fase (0.0-1.0)
+    bool useQualityMask = false;      // Usar máscara de qualidade
+    std::string minutiaeDensity = "low";  // low/medium/high
+    
+    // Parâmetros avançados
+    double coherenceThreshold = 0.3;  // Limiar de coerência da máscara
+    int qualityWindowSize = 15;       // Tamanho da janela de qualidade
+    double frequencySmoothSigma = 1.5; // Sigma para suavização de frequência
+    
+    // Parâmetros legados (mantidos para compatibilidade)
+    bool enableExplicitMinutiae = false;
     MinutiaeStatistics stats;
     int targetMinutiae = -1;
     double insertionProbability = 0.7;

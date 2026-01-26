@@ -176,6 +176,17 @@ struct MinutiaeParameters {
     int targetMinutiae = -1;
     double insertionProbability = 0.7;
     double removalProbability = 0.3;
+    
+    // NOVOS PARÂMETROS PARA CONTROLE MELHORADO
+    bool useContinuousPhase = true;   // Toggle para método antigo vs novo
+    double phaseNoiseLevel = 0.1;      // 0.0 a 1.0 (ruído controlado)
+    bool useQualityMask = true;        // Aplicar máscara de qualidade
+    QString minutiaeDensity = "low";   // "low", "medium", "high"
+    int customBifurcations = -1;       // -1 = usar preset
+    int customEndings = -1;            // -1 = usar preset
+    double coherenceThreshold = 0.5;   // Limiar para máscara de qualidade
+    int qualityWindowSize = 16;        // Tamanho da janela de coerência
+    double frequencySmoothSigma = 10.0; // Suavização do campo de frequência
 };
 
 class FingerprintParameters {

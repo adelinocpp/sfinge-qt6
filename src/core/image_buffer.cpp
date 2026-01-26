@@ -1,10 +1,14 @@
+#ifndef IMAGE_BUFFER_CPP
+#define IMAGE_BUFFER_CPP
+
 #include "image_buffer.h"
 #include <fstream>
-#include <iostream>
+#include <stdexcept>
 
 ImageBuffer::ImageBuffer(int width, int height)
-    : m_width(width), m_height(height) {
-    m_data.resize(width * height, 0);
+    : m_width(width)
+    , m_height(height)
+    , m_data(width * height, 0) {
 }
 
 ImageBuffer::~ImageBuffer() {
@@ -24,19 +28,12 @@ uint8_t ImageBuffer::getPixel(int x, int y) const {
 }
 
 bool ImageBuffer::saveToFile(const char* filename) const {
-    // Simple PGM format (grayscale)
     std::ofstream file(filename, std::ios::binary);
-    if (!file.is_open()) {
+    if (!file) {
         return false;
     }
-    
-    // Write PGM header
-    file << "P5\n";
-    file << m_width << " " << m_height << "\n";
-    file << "255\n";
-    
-    // Write pixel data
     file.write(reinterpret_cast<const char*>(m_data.data()), m_data.size());
-    
     return file.good();
 }
+
+#endif

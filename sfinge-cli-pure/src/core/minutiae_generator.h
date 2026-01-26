@@ -55,6 +55,10 @@ private:
     void insertRidgeEnding(std::vector<float>& ridgeMap, const Minutia& m);
     void insertBifurcation(std::vector<float>& ridgeMap, const Minutia& m);
     
+    // Métodos melhorados (campo de fase contínuo)
+    void insertRidgeEndingImproved(std::vector<float>& ridgeMap, const Minutia& m);
+    void insertBifurcationImproved(std::vector<float>& ridgeMap, const Minutia& m);
+    
     // Geração de posições
     std::pair<double, double> generatePosition();
     

@@ -1,8 +1,5 @@
 #include "fingerprint_generator_pure.h"
-#include "shape_generator.h"
-#include "density_generator.h"
-#include "orientation_generator.h"
-#include "ridge_generator.h"
+#include "generators_pure.h"
 #include <cmath>
 #include <algorithm>
 
@@ -49,13 +46,13 @@ ImageBuffer FingerprintGeneratorPure::generateFingerprint() {
 }
 
 void FingerprintGeneratorPure::generateShapeMap(ImageBuffer& shapeMap) {
-    ShapeGenerator shapeGen;
+    ShapeGeneratorPure shapeGen;
     shapeGen.setParameters(m_params.shape);
     shapeGen.generateShape(shapeMap);
 }
 
 void FingerprintGeneratorPure::generateDensityMap(ImageBuffer& densityMap) {
-    DensityGenerator densityGen;
+    DensityGeneratorPure densityGen;
     densityGen.setParameters(m_params.density);
     densityGen.setSingularPoints(m_points);
     densityGen.generateDensity(densityMap);
@@ -109,7 +106,7 @@ void FingerprintGeneratorPure::generateRidgeMap(ImageBuffer& ridgeMap, const Ima
     }
 }
 
-double FingerprintGeneratorPure::calculateOrientation(double x, double y, const SingularPoints& points) {
+double FingerprintGeneratorPure::calculateOrientation(double x, double y, const SingularPointsPure& points) {
     double totalAngle = 0.0;
     
     // Calculate contribution from cores
@@ -144,7 +141,7 @@ double FingerprintGeneratorPure::calculateOrientation(double x, double y, const 
     return orientation;
 }
 
-double FingerprintGeneratorPure::calculateDensity(double x, double y, const SingularPoints& points) {
+double FingerprintGeneratorPure::calculateDensity(double x, double y, const SingularPointsPure& points) {
     // Simplified density calculation
     double baseDensity = 0.5; // 50% density
     

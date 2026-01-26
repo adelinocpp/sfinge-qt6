@@ -160,8 +160,8 @@ void RidgeGenerator::generateRidgeMap() {
 Image RidgeGenerator::generate() {
     generateRidgeMap();
     
-    // Gerar e aplicar minúcias explícitas
-    if (m_minutiaeParams.enableExplicitMinutiae) {
+    // Gerar e aplicar minúcias - método original ou melhorado
+    if (m_minutiaeParams.enableExplicitMinutiae || m_minutiaeParams.useContinuousPhase) {
         m_minutiaeGenerator.reseed();
         m_minutiaeGenerator.setParameters(m_minutiaeParams);
         m_minutiaeGenerator.setOrientationMap(m_orientationMap, m_width, m_height);

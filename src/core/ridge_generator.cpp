@@ -83,7 +83,15 @@ double RidgeGenerator::applyFilter(const GaborFilter& filter, int x, int y,
 }
 
 void RidgeGenerator::generateRidgeMap() {
-    // Garantir tamanho ímpar do filtro Gabor (2*size+1 é sempre ímpar)
+    if (m_minutiaeParams.useContinuousPhase) {
+        generateRidgeMapImproved();
+    } else {
+        generateRidgeMapOriginal();
+    }
+}
+
+void RidgeGenerator::generateRidgeMapOriginal() {
+    // MÉTODO ORIGINAL (com fase aleatória)
     int filterSize = m_params.gaborFilterSize * 2 + 1;
     GaborFilterCache cache(m_params.cacheDegrees, m_params.cacheFrequencies,
                           m_densityParams.minFrequency, m_densityParams.maxFrequency,
@@ -97,9 +105,6 @@ void RidgeGenerator::generateRidgeMap() {
         m_ridgeMap[i] = rng->generateDouble() < 0.001 ? 1.0f : 0.0f;
     }
     
-    std::vector<float> prevRidge = m_ridgeMap;
-    
-    //TODO_APS: Geração de cristas e vales usando orientação e densidade (filtros Gabor iterativos)
     std::vector<float> newRidge(m_width * m_height, 0.0f);
     
     for (int iteration = 0; iteration < m_params.maxIterations; ++iteration) {
@@ -109,20 +114,14 @@ void RidgeGenerator::generateRidgeMap() {
             for (int i = 0; i < m_width; ++i) {
                 int idx = j * m_width + i;
                 
-                // OTIMIZAÇÃO: Pular pixels fora da shape mask (background)
-                if (m_shapeMap[idx] < 0.1f) {
-                    continue;
-                }
+                if (m_shapeMap[idx] < 0.1f) continue;
                 
                 double theta = m_orientationMap[idx];
-                // Normalizar para [0, 2π) como no SFINGE original
                 double thetaNorm = theta;
                 if (thetaNorm < 0) thetaNorm += 2.0 * M_PI;
                 
                 double freq = m_densityMap[idx];
                 
-                // Mapear para índice do cache [0, cacheDegrees)
-                // Cache usa theta em [0, 2π), então usamos theta direto
                 int degIdx = std::min(static_cast<int>(thetaNorm / (2.0 * M_PI) * m_params.cacheDegrees), 
                                      m_params.cacheDegrees - 1);
                 int freqIdx = std::min(static_cast<int>((freq - m_densityParams.minFrequency) / 
@@ -136,7 +135,6 @@ void RidgeGenerator::generateRidgeMap() {
                 const GaborFilter& filter = cache.getFilter(degIdx, freqIdx);
                 double response = applyFilter(filter, i, j, m_ridgeMap);
                 
-                // Binarização suave
                 newRidge[idx] = response > 0.0 ? 1.0f : 0.0f;
             }
         }
@@ -162,6 +160,84 @@ void RidgeGenerator::generateRidgeMap() {
         }
     }
     
+    for (int i = 0; i < m_width * m_height; ++i) {
+        m_ridgeMap[i] *= m_shapeMap[i];
+    }
+}
+
+void RidgeGenerator::generateRidgeMapImproved() {
+    // MÉTODO MELHORADO (com fase contínua)
+    
+    // PASSO 1: Suavizar campo de frequência
+    std::vector<std::vector<double>> freqField(m_height, 
+        std::vector<double>(m_width, 0.0));
+    
+    for (int y = 0; y < m_height; y++) {
+        for (int x = 0; x < m_width; x++) {
+            int idx = y * m_width + x;
+            freqField[y][x] = m_densityMap[idx];
+        }
+    }
+    
+    auto smoothFreq = m_frequencySmoother.smooth(freqField, m_minutiaeParams.frequencySmoothSigma);
+    
+    // PASSO 2: Gerar máscara de qualidade
+    std::vector<std::vector<double>> orientationField(m_height, 
+        std::vector<double>(m_width, 0.0));
+    
+    for (int y = 0; y < m_height; y++) {
+        for (int x = 0; x < m_width; x++) {
+            int idx = y * m_width + x;
+            orientationField[y][x] = m_orientationMap[idx];
+        }
+    }
+    
+    m_qualityGenerator.setCoherenceThreshold(m_minutiaeParams.coherenceThreshold);
+    m_qualityGenerator.setWindowSize(m_minutiaeParams.qualityWindowSize);
+    auto qualityMask = m_qualityGenerator.generate(orientationField);
+    
+    // PASSO 3: Gerar campo de fase CONTÍNUO
+    m_phaseGenerator.setNoiseLevel(m_minutiaeParams.phaseNoiseLevel);
+    auto phaseField = m_phaseGenerator.generate(orientationField, smoothFreq, 500); // 500 DPI padrão
+    
+    // PASSO 4: Renderizar com fase contínua
+    m_ridgeMap.resize(m_width * m_height);
+    
+    for (int y = 0; y < m_height; y++) {
+        for (int x = 0; x < m_width; x++) {
+            int idx = y * m_width + x;
+            
+            // Pular pixels fora da shape mask
+            if (m_shapeMap[idx] < 0.1f) {
+                m_ridgeMap[idx] = 0.0f;
+                continue;
+            }
+            
+            // Valor base das cristas (cosine da fase contínua)
+            double phase = phaseField[y][x];
+            double ridgeValue = std::cos(phase);
+            
+            // Modula por qualidade
+            double quality = qualityMask[y][x];
+            if (m_minutiaeParams.useQualityMask) {
+                ridgeValue = quality * ridgeValue + (1.0 - quality) * 0.0;
+            }
+            
+            // Binarização suave
+            m_ridgeMap[idx] = ridgeValue > 0.0 ? 1.0f : 0.0f;
+        }
+    }
+    
+    // PASSO 5: Aplicar minutiae generator (se habilitado)
+    if (m_minutiaeParams.enableExplicitMinutiae) {
+        m_minutiaeGenerator.setParameters(m_minutiaeParams);
+        m_minutiaeGenerator.setOrientationMap(m_orientationMap, m_width, m_height);
+        m_minutiaeGenerator.setRidgeMap(m_ridgeMap);
+        m_minutiaeGenerator.generateMinutiae();
+        m_minutiaeGenerator.applyMinutiae(m_ridgeMap);
+    }
+    
+    // Aplicar shape mask final
     for (int i = 0; i < m_width * m_height; ++i) {
         m_ridgeMap[i] *= m_shapeMap[i];
     }
