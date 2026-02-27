@@ -93,7 +93,7 @@ struct RenderingParameters {
     double valleyNoiseFrequency = 0.08;
     double valleyNoiseAmplitude = 0.02;
     bool enablePores = true;
-    double poreDensity = 0.0015;
+    double poreDensity = 0.15;
     double minPoreSize = 0.5;
     double maxPoreSize = 1.0;
     double minPoreIntensity = 0.02;

@@ -66,7 +66,6 @@ private:
     
     QLabel* m_statusLabel;
     QProgressBar* m_progressBar;
-    QCheckBox* m_ellipticalMaskCheckBox;
 };
 
 }

@@ -101,14 +101,14 @@ QImage FingerprintGenerator::generateOrientationVisualization() {
 
 QImage FingerprintGenerator::generateFingerprint() {
     emit progressChanged(0, "Starting fingerprint generation...");
-    
+
     // SEMPRE regenerar tudo para garantir novos pontos singulares
     generateShape();
     generateDensity();
     generateOrientation();
-    
-    emit progressChanged(70, "Generating ridge pattern...");
-    
+
+    emit progressChanged(60, "Generating ridge pattern...");
+
     m_ridgeGenerator.setParameters(m_params.ridge, m_params.density, m_params.rendering, m_params.variation);
     m_ridgeGenerator.setMinutiaeParameters(m_params.minutiae);
     m_ridgeGenerator.setOrientationMap(m_orientationGenerator.getOrientationMap(),
@@ -116,26 +116,50 @@ QImage FingerprintGenerator::generateFingerprint() {
                                       m_shapeGenerator.getHeight());
     m_ridgeGenerator.setDensityMap(m_densityGenerator.getDensityMap());
     m_ridgeGenerator.setShapeMap(m_shapeGenerator.getShapeMap());
-    
+
     // Set core position from singular points
     const auto& cores = m_points.getCores();
     if (!cores.empty()) {
         m_ridgeGenerator.setCorePosition(cores[0].x, cores[0].y);
     } else {
-        m_ridgeGenerator.setCorePosition(m_shapeGenerator.getWidth() / 2.0, 
+        m_ridgeGenerator.setCorePosition(m_shapeGenerator.getWidth() / 2.0,
                                          m_shapeGenerator.getHeight() * 0.4);
     }
-    
-    m_fingerprintImage = m_ridgeGenerator.generate();
-    
+
+    m_ridgeGenerator.generate();  // Preenche m_ridgeMap e aplica renderFingerprint() internamente
+
+    emit progressChanged(85, "Applying texture rendering...");
+
+    int width  = m_shapeGenerator.getWidth();
+    int height = m_shapeGenerator.getHeight();
+
+    // Usar ridgeMap renderizado (com suavização 3×3, skin condition, distorção elástica e ruído).
+    // Isso é a impressão como ela sairia do dedo — contínua (0-1), cristas ≈ altas, vales ≈ baixas.
+    // NÃO usar getRidgeMap() aqui (binário puro, sem nenhum efeito).
+    std::vector<float> ridgeMap = m_ridgeGenerator.getRenderedRidgeMap();
+
+    // Aplicar TextureRenderer com ridgeMap correto (cristas=1, vales=0)
+    TextureRenderer renderer(m_params.rendering, width, height, m_currentSeed);
+    auto renderedData = renderer.render(ridgeMap, m_shapeGenerator.getShapeMap(),
+                                        m_orientationGenerator.getOrientationMap());
+
+    m_fingerprintImage = QImage(width, height, QImage::Format_Grayscale8);
+    for (int j = 0; j < height; ++j) {
+        uchar* line = m_fingerprintImage.scanLine(j);
+        for (int i = 0; i < width; ++i) {
+            float val = std::clamp(renderedData[j * width + i], 0.0f, 1.0f);
+            line[i] = static_cast<uchar>(val * 255.0f);
+        }
+    }
+
     if (!m_fingerprintImage.isNull()) {
         m_fingerprintImage.setDotsPerMeterX(500 * 39.3701);
         m_fingerprintImage.setDotsPerMeterY(500 * 39.3701);
     }
-    
+
     emit progressChanged(100, "Fingerprint generation complete!");
     emit generationComplete();
-    
+
     return m_fingerprintImage;
 }
 
@@ -156,28 +180,22 @@ QImage FingerprintGenerator::generateMasterprint() {
     m_ridgeGenerator.setDensityMap(m_densityGenerator.getDensityMap());
     m_ridgeGenerator.setShapeMap(m_shapeGenerator.getShapeMap());
     
-    // Obter mapa de cristas binário
-    QImage ridgeImage = m_ridgeGenerator.generate();
-    
+    // Gerar mapa de cristas (preenche m_ridgeMap binário com minúcias)
+    m_ridgeGenerator.generate();
+
     emit progressChanged(85, "Applying advanced rendering...");
-    
+
     // Módulo 2: Aplicar renderização avançada com TextureRenderer
     int width = m_shapeGenerator.getWidth();
     int height = m_shapeGenerator.getHeight();
-    
-    // Converter ridgeImage para vetor de floats
-    std::vector<float> ridgeMap(width * height);
-    QImage grayscale = ridgeImage.convertToFormat(QImage::Format_Grayscale8);
-    for (int j = 0; j < height; ++j) {
-        const uchar* line = grayscale.constScanLine(j);
-        for (int i = 0; i < width; ++i) {
-            ridgeMap[j * width + i] = line[i] / 255.0f;
-        }
-    }
-    
-    // Criar TextureRenderer e aplicar
+
+    // Usar m_ridgeMap bruto (binário: 1=crista, 0=vale) — sem inversão da QImage
+    std::vector<float> ridgeMap = m_ridgeGenerator.getRidgeMap();
+
+    // Criar TextureRenderer e aplicar com ridgeMap correto (cristas=1, vales=0)
     TextureRenderer renderer(m_params.rendering, width, height, m_currentSeed);
-    auto renderedData = renderer.render(ridgeMap, m_shapeGenerator.getShapeMap());
+    auto renderedData = renderer.render(ridgeMap, m_shapeGenerator.getShapeMap(),
+                                        m_orientationGenerator.getOrientationMap());
     
     // Converter de volta para QImage
     m_masterprintImage = QImage(width, height, QImage::Format_Grayscale8);

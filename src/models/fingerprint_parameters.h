@@ -27,23 +27,25 @@ enum class FingerprintClass {
 };
 
 struct ShapeParameters {
-    int left = 50;
-    int right = 50;
-    int top = 50;
-    int bottom = 50;
-    int middle = 50;
+    // 280×360px @ 500 DPI — sT/sL=1.43 (SFinGe original usa ~1.5, ex: set_shape(100,110,150,90,50))
+    // sT > sL → ponta do dedo apontada; sM curto → corpo não retangular
+    int left   = 140;
+    int right  = 140;
+    int top    = 200;  // sT > sL: ponta alongada (original: sT=150 > sL=100)
+    int middle = 60;   // retângulo curto — 17% da altura total
+    int bottom = 100;  // base arredondada
     FingerType fingerType = FingerType::Index;
 };
 
 struct DensityParameters {
-    // Densidade de cristas realista a 500 DPI:
-    // - Distância inter-crista típica: 0.45-0.55mm
-    // - A 500 DPI: 1mm = 19.7 pixels
-    // - Período: 9-11 pixels (frequência: 1/11 a 1/9)
-    float minFrequency = 1.0f / 11.0f;  // ~0.091 (período 11 pixels = 0.56mm)
-    float maxFrequency = 1.0f / 9.0f;   // ~0.111 (período 9 pixels = 0.46mm)
-    double zoom = 1.0;
-    double amplify = 0.5;
+    // Frequência de cristas — SFinGe original (FinGe.cpp):
+    //   minF = 1/15 ≈ 0.067 (período 15 px, cristas esparsas)
+    //   maxF = 1/5  = 0.200 (período 5 px,  cristas densas)
+    // Range amplo produz maior variação regional de densidade, como em impressões reais.
+    float minFrequency = 1.0f / 15.0f;  // ~0.067 (período 15 pixels) — SFinGe original
+    float maxFrequency = 1.0f / 5.0f;   // ~0.200 (período 5 pixels)  — SFinGe original
+    double zoom = 2.0;
+    double amplify = 1.5;
 };
 
 enum class OrientationMethod {
@@ -56,7 +58,7 @@ struct OrientationParameters {
     int nCores = 1;
     int nDeltas = 1;
     double verticalBiasStrength = 0.0;   // Desabilitado por padrão
-    double verticalBiasRadius = 80.0;    // Raio de influência em pixels
+    double verticalBiasRadius = 100.0;   // Raio de influência em pixels
     double coreConvergenceStrength = 0.2; // Convergência modesta no core (0-1)
     double coreConvergenceRadius = 50.0;  // Raio de convergência
     double coreConvergenceProbability = 0.3; // Probabilidade aleatória (0-1)
@@ -104,31 +106,126 @@ struct RenderingParameters {
     // Parâmetros de Ruído
     double backgroundNoiseFrequency = 0.03;
     double backgroundNoiseAmplitude = 0.02;
-    double ridgeNoiseFrequency = 0.05;
-    double ridgeNoiseAmplitude = 0.02;
+    double ridgeNoiseFrequency = 0.1;
+    double ridgeNoiseAmplitude = 0.10;  // era 0.05 — mais ruído para textura natural
     double valleyNoiseFrequency = 0.08;
     double valleyNoiseAmplitude = 0.02;
 
-    // Parâmetros dos Poros
+    // Parâmetros dos Poros - Sistema Avançado
     bool enablePores = true;
-    double poreDensity = 0.0015; // Poros por pixel de crista
-    double minPoreSize = 0.5; // Em pixels
-    double maxPoreSize = 1.0; // Em pixels
-    double minPoreIntensity = 0.02; // Aumento de brilho
-    double maxPoreIntensity = 0.04;
+    // Poros de suor: 150-300 µm @ 500 DPI → 3-6 pixels de diâmetro
+    double poreDensity = 0.008; // 0.8% dos pixels de crista recebem poros
+
+    // Tamanhos em pixels — calibrados para 500 DPI
+    double poreMinSize = 1.5;    // mínimo visível (~75 µm @ 500 DPI)
+    double poreMaxSize = 5.0;    // máximo (~250 µm @ 500 DPI)
+    double poreMeanSize = 2.5;   // médio log-normal (~125 µm @ 500 DPI)
+    double poreSizeStdDev = 0.5; // desvio padrão
+
+    // Formas dos poros
+    double poreCircularRatio = 0.6;    // 60% circulares
+    double poreEllipticalRatio = 0.3;  // 30% elípticos
+    double poreIrregularRatio = 0.1;   // 10% irregulares
+    double poreEllipseAspectMin = 1.2; // Razão de aspecto mínima para elipses
+    double poreEllipseAspectMax = 2.0; // Razão de aspecto máxima
+
+    // Intensidade: fração de interpolação em direção ao branco (vale)
+    // 1.0 = poro completamente branco; 0.5 = meio-caminho entre crista e vale
+    double minPoreIntensity = 0.50;    // interpolação mínima em direção ao vale
+    double maxPoreIntensity = 0.85;    // interpolação máxima (poro quase branco)
+    double poreOpacityVariation = 0.3; // Variação na opacidade (0-1)
+
+    // Distribuição espacial
+    bool enablePoreClustering = true;  // Ativar agrupamentos de poros
+    double poreClusteringFactor = 0.3; // Intensidade do agrupamento (0-1)
+    int poreClusterSize = 3;           // Número de poros por cluster
+
+    // Tipos de poros
+    double incipientRidgeRatio = 0.15; // 15% são cristas incipientes (linhas finas)
 
     // Parâmetros de Renderização Final
     double finalBlurSigma = 0.5;
     double contrastPercentileLower = 2.0;
     double contrastPercentileUpper = 98.0;
+
+    // Iluminação Direcional - Simula captura em diferentes ângulos
+    bool enableDirectionalLighting = false;
+    double lightAzimuth = 45.0;          // Ângulo horizontal (0-360 graus)
+    double lightElevation = 45.0;        // Ângulo vertical (0-90 graus)
+    double lightIntensity = 0.6;         // Intensidade do efeito (0-1)
+    double ridgeHeight = 0.15;           // Altura simulada das cristas (0-1)
+    double ambientLight = 0.4;           // Luz ambiente mínima (0-1)
+    bool enableSpecular = false;         // Ativar reflexos especulares
+    double specularStrength = 0.3;       // Força dos reflexos (0-1)
+    double specularShininess = 20.0;     // Nitidez dos reflexos (1-100)
+
+    // Manchas e Artefatos - Imperfeições realistas
+    bool enableArtifacts = true;        // Ativar sistema de artefatos
+
+    // Umidade / Suor
+    bool enableMoisture = true;          // Manchas de umidade
+    double moistureDensity = 0.002;      // Densidade de manchas (0-0.01)
+    double moistureMinSize = 15.0;       // Tamanho mínimo (pixels)
+    double moistureMaxSize = 40.0;       // Tamanho máximo
+    double moistureIntensity = 0.15;     // Efeito no brilho (0-0.3)
+
+    // Sujeira / Manchas escuras — desabilitado por padrão (causa manchas escuras)
+    bool enableDirt = false;             // Manchas de sujeira
+    double dirtDensity = 0.001;          // Densidade (0-0.01)
+    double dirtMinSize = 10.0;           // Tamanho mínimo
+    double dirtMaxSize = 30.0;           // Tamanho máximo
+    double dirtIntensity = 0.2;          // Escurecimento (0-0.5)
+
+    // Cicatrizes / Cortes — habilitado (usuário solicitou)
+    bool enableScars = true;             // Cicatrizes lineares
+    int numScars = 1;                    // Número de cicatrizes (0-5)
+    double scarMinLength = 30.0;         // Comprimento mínimo
+    double scarMaxLength = 80.0;         // Comprimento máximo
+    double scarWidth = 2.0;              // Largura (pixels)
+    double scarIntensity = 0.3;          // Efeito nas cristas (0-1)
+
+    // Ressecamento / Rachaduras — desabilitado por padrão (causa manchas escuras)
+    bool enableDryness = false;          // Linhas de ressecamento
+    int numDryCracks = 3;                // Número de rachaduras (0-10)
+    double dryCrackLength = 20.0;        // Comprimento médio
+    double dryCrackWidth = 0.5;          // Largura (pixels)
+    double dryCrackIntensity = 0.1;      // Efeito visual (0-0.3)
+
+    // Borrões / Smudges (tinta excessiva) — desabilitado por padrão (causa manchas escuras)
+    bool enableSmudges = false;          // Borrões
+    double smudgeDensity = 0.0015;       // Densidade (0-0.01)
+    double smudgeMinSize = 20.0;         // Tamanho mínimo
+    double smudgeMaxSize = 50.0;         // Tamanho máximo
+    double smudgeIntensity = 0.12;       // Escurecimento (0-0.3)
+
+    // Anti-aliasing das transições crista-vale
+    bool enableAntiAliasing = true;      // Ativar suavização de bordas
+    double antiAliasingSigma = 1.5;      // era 0.8 — AA mais suave nas transições crista-vale
+    double ridgeTransitionWidth = 1.5;   // Largura da transição suave (pixels)
 };
 
 // Módulo 3: Parâmetros de Variação e Distorção
 struct VariationParameters {
-    // Distorção Plástica
-    bool enablePlasticDistortion = false;
-    double plasticDistortionStrength = 2.0;
-    int plasticDistortionBumps = 2;
+    // Distorção Plástica/Elástica Avançada (Cappelli Step 7)
+    bool enablePlasticDistortion = true;
+    double plasticDistortionStrength = 0.8;   // era 2.0 — reduzido para não distorcer demais
+    int plasticDistortionBumps = 2;           // era 3
+
+    // Novos tipos de distorção
+    bool enableMultiScaleDistortion = true;
+    int distortionOctaves = 2;                // era 3
+    double distortionPersistence = 0.5;
+
+    bool enableRadialDistortion = true;
+    double radialDistortionCenter = 0.5;
+    double radialDistortionStrength = 0.5;    // era 1.5
+
+    bool enableDirectionalDistortion = true;
+    double directionalDistortionStrength = 0.2; // era 0.8
+
+    bool enableShearDistortion = false;       // Cisalhamento (movimento lateral)
+    double shearAngle = 0.1;                  // Ângulo de cisalhamento (radianos)
+    double shearStrength = 1.0;               // Força do cisalhamento
 
     // Distorção de Lente
     bool enableLensDistortion = false;
@@ -142,9 +239,10 @@ struct VariationParameters {
     double maxTranslationX = 10.0;
     double maxTranslationY = 10.0;
 
-    // Condição da Pele
-    bool enableSkinCondition = false;
-    double skinConditionFactor = 0.1;
+    // Condição da Pele (Cappelli Step 6: erosão=seca, dilatação=úmida)
+    // factor > 0 → úmido (cristas mais grossas), factor < 0 → seco (cristas mais finas)
+    bool enableSkinCondition = true;
+    double skinConditionFactor = 0.10;  // era 0.15 — leve, sutil
 };
 
 struct ClassificationParameters {
@@ -152,10 +250,17 @@ struct ClassificationParameters {
 };
 
 struct RidgeParameters {
-    int gaborFilterSize = 8;
+    int gaborFilterSize = 10;  // Kernel 21x21 — SFinGe original
     int cacheDegrees = 36;
-    int cacheFrequencies = 10;
+    int cacheFrequencies = 20;  // 20 bins de frequência — SFinGe original
     int maxIterations = 180;
+    bool useSIMD = true;  // Enable SIMD optimizations (SSE2/AVX) for Gabor filtering
+
+    // Initial seed density (controls minutiae quantity in original method)
+    // Higher values = more initial seeds = more minutiae
+    // Range: 0.0001 (very sparse) to 0.01 (very dense)
+    // Default: 0.001 (0.1% - SFINGE original)
+    double initialSeedDensity = 0.001;
 };
 
 struct MinutiaeStatistics {
@@ -171,14 +276,16 @@ struct MinutiaeStatistics {
 };
 
 struct MinutiaeParameters {
-    bool enableExplicitMinutiae = true;
+    // SFinGe original NÃO tem gerador explícito — minúcias surgem naturalmente do Gabor.
+    // Habilitar este gerador DOBRA a quantidade de minúcias (natural + explícitas).
+    bool enableExplicitMinutiae = false;
     MinutiaeStatistics stats;
     int targetMinutiae = -1;
     double insertionProbability = 0.7;
     double removalProbability = 0.3;
     
     // NOVOS PARÂMETROS PARA CONTROLE MELHORADO
-    bool useContinuousPhase = true;   // Toggle para método antigo vs novo
+    bool useContinuousPhase = false;  // Toggle para método antigo vs novo (padrão: método original)
     double phaseNoiseLevel = 0.1;      // 0.0 a 1.0 (ruído controlado)
     bool useQualityMask = true;        // Aplicar máscara de qualidade
     QString minutiaeDensity = "low";   // "low", "medium", "high"

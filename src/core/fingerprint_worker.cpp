@@ -66,11 +66,6 @@ void FingerprintWorker::run() {
             qDebug() << "[FingerprintWorker] Generated image size:" << image.width() << "x" << image.height() << "null:" << image.isNull();
             qDebug() << "[FingerprintWorker] Image DPI:" << (image.dotsPerMeterX() / 39.3701) << "x" << (image.dotsPerMeterY() / 39.3701);
             
-            // Aplicar máscara elíptica se solicitado
-            if (m_applyEllipticalMask && !image.isNull()) {
-                image = applyEllipticalMask(image);
-            }
-            
             if (!m_cancelled && !image.isNull()) {
                 emit progressChanged(100, tr("Complete"));
                 qDebug() << "[FingerprintWorker] Emitting fingerprintGenerated signal";

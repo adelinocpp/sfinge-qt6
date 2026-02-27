@@ -9,13 +9,21 @@ namespace SFinGe {
 class GaborFilter {
 public:
     GaborFilter(int size, double sigma, double theta, double lambda, double gamma = 1.0, double psi = 0.0);
-    
+
     const std::vector<double>& getKernel() const { return m_kernel; }
     int getSize() const { return m_size; }
-    
-    static std::vector<double> createKernel(int size, double sigma, double theta, double lambda, 
+
+    static std::vector<double> createKernel(int size, double sigma, double theta, double lambda,
                                            double gamma = 1.0, double psi = 0.0);
-    
+
+    // Apply filter to image data using SIMD optimization (SSE2/AVX if available)
+    static double applyFilterSIMD(const std::vector<double>& kernel, int kernelSize,
+                                 const float* imageData, int imageWidth, int imageHeight,
+                                 int centerX, int centerY);
+
+    // Check if SIMD is available on this CPU
+    static bool isSIMDAvailable();
+
 private:
     std::vector<double> m_kernel;
     int m_size;

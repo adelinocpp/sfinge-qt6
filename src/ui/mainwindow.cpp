@@ -74,17 +74,17 @@ void MainWindow::setupMenuBar() {
     fileMenu->addAction(tr("Batch Generation..."), this, &MainWindow::onBatchGeneration, QKeySequence("Ctrl+B"));
     fileMenu->addSeparator();
     fileMenu->addAction(tr("Exit"), qApp, &QApplication::quit, QKeySequence::Quit);
-    
+
     QMenu* editMenu = menuBar()->addMenu(tr("Edit"));
     editMenu->addAction(tr("Reset Parameters"), this, &MainWindow::onResetParameters);
-    
+
     QMenu* generateMenu = menuBar()->addMenu(tr("Generate"));
     generateMenu->addAction(tr("Generate Shape"), this, &MainWindow::onGenerateShape, QKeySequence("F5"));
     generateMenu->addAction(tr("Generate Density"), this, &MainWindow::onGenerateDensity, QKeySequence("F6"));
     generateMenu->addAction(tr("Generate Orientation"), this, &MainWindow::onGenerateOrientation, QKeySequence("F7"));
     generateMenu->addSeparator();
     generateMenu->addAction(tr("Generate Fingerprint"), this, &MainWindow::onGenerateFingerprint, QKeySequence("F8"));
-    
+
     QMenu* helpMenu = menuBar()->addMenu(tr("Help"));
     helpMenu->addAction(tr("About"), this, &MainWindow::onAbout);
     helpMenu->addAction(tr("About Qt"), qApp, &QApplication::aboutQt);
@@ -132,11 +132,6 @@ void MainWindow::setupDockWidgets() {
 }
 
 void MainWindow::setupStatusBar() {
-    m_ellipticalMaskCheckBox = new QCheckBox(tr("Elliptical mask"), this);
-    m_ellipticalMaskCheckBox->setChecked(true);
-    m_ellipticalMaskCheckBox->setToolTip(tr("Apply smooth elliptical mask with fade out to white at edges"));
-    statusBar()->addPermanentWidget(m_ellipticalMaskCheckBox);
-    
     statusBar()->addWidget(m_statusLabel);
     statusBar()->addPermanentWidget(m_progressBar);
     m_progressBar->hide();
@@ -271,7 +266,6 @@ void MainWindow::onGenerateFingerprint() {
     
     m_worker->setParameters(m_parameters);
     m_worker->setSingularPoints(m_singularPoints);
-    m_worker->setApplyEllipticalMask(m_ellipticalMaskCheckBox->isChecked());
     
     m_progressBar->show();
     m_progressBar->setValue(0);

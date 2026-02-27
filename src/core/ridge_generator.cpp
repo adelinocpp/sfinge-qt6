@@ -50,27 +50,34 @@ void RidgeGenerator::setShapeMap(const std::vector<float>& shapeMap) {
     m_shapeMap = shapeMap;
 }
 
-double RidgeGenerator::applyFilter(const GaborFilter& filter, int x, int y, 
+double RidgeGenerator::applyFilter(const GaborFilter& filter, int x, int y,
                                    const std::vector<float>& image) {
+    // Use SIMD-optimized version if enabled and available
+    if (m_params.useSIMD && GaborFilter::isSIMDAvailable()) {
+        return GaborFilter::applyFilterSIMD(filter.getKernel(), filter.getSize(),
+                                           image.data(), m_width, m_height, x, y);
+    }
+
+    // Fallback to original implementation
     const auto& kernel = filter.getKernel();
     int filterSize = filter.getSize();
     int b = filterSize / 2;
-    
+
     // Implementação igual ao SFINGE original (FinGe.cpp linha 216-218)
     // Calcula retângulos de overlap corretos para bordas
-    
+
     // Região do filtro a ser usada
     int fil_x = std::max(b - x, 0);
     int fil_y = std::max(b - y, 0);
     int fil_width = std::min(std::min(filterSize, m_width + b - x), b + x) - fil_x;
     int fil_height = std::min(std::min(filterSize, m_height + b - y), b + y) - fil_y;
-    
+
     // Região da imagem correspondente
     int img_x = std::max(x - b, 0);
     int img_y = std::max(y - b, 0);
-    
+
     double sum = 0.0;
-    
+
     for (int fy = 0; fy < fil_height; ++fy) {
         for (int fx = 0; fx < fil_width; ++fx) {
             int kernelIdx = (fil_y + fy) * filterSize + (fil_x + fx);
@@ -78,7 +85,7 @@ double RidgeGenerator::applyFilter(const GaborFilter& filter, int x, int y,
             sum += kernel[kernelIdx] * image[imgIdx];
         }
     }
-    
+
     return sum;
 }
 
@@ -98,11 +105,12 @@ void RidgeGenerator::generateRidgeMapOriginal() {
                           filterSize);
     
     m_ridgeMap.resize(m_width * m_height);
-    
-    // Inicialização esparsa (0.1% como no SFINGE original)
+
+    // Inicialização esparsa (densidade controlada por initialSeedDensity)
+    // Maior densidade = mais sementes = mais minúcias
     auto* rng = QRandomGenerator::global();
     for (int i = 0; i < m_width * m_height; ++i) {
-        m_ridgeMap[i] = rng->generateDouble() < 0.001 ? 1.0f : 0.0f;
+        m_ridgeMap[i] = rng->generateDouble() < m_params.initialSeedDensity ? 1.0f : 0.0f;
     }
     
     std::vector<float> newRidge(m_width * m_height, 0.0f);
@@ -150,9 +158,9 @@ void RidgeGenerator::generateRidgeMapOriginal() {
             
             double changeRatio = static_cast<double>(changes) / (m_width * m_height);
             m_ridgeMap = newRidge;
-            
-            // Convergência: 0.5% de mudança
-            if (changeRatio < 0.005) {
+
+            // Convergência: 0.1% de mudança (igual ao SFinGe original)
+            if (changeRatio < 0.001) {
                 break;
             }
         } else {
@@ -228,15 +236,6 @@ void RidgeGenerator::generateRidgeMapImproved() {
         }
     }
     
-    // PASSO 5: Aplicar minutiae generator (se habilitado)
-    if (m_minutiaeParams.enableExplicitMinutiae) {
-        m_minutiaeGenerator.setParameters(m_minutiaeParams);
-        m_minutiaeGenerator.setOrientationMap(m_orientationMap, m_width, m_height);
-        m_minutiaeGenerator.setRidgeMap(m_ridgeMap);
-        m_minutiaeGenerator.generateMinutiae();
-        m_minutiaeGenerator.applyMinutiae(m_ridgeMap);
-    }
-    
     // Aplicar shape mask final
     for (int i = 0; i < m_width * m_height; ++i) {
         m_ridgeMap[i] *= m_shapeMap[i];
@@ -258,16 +257,17 @@ QImage RidgeGenerator::generate() {
         m_minutiaeGenerator.applyMinutiae(m_ridgeMap);
     }
     
-    // Aplicar rendering realista (suavização e ruído)
-    std::vector<float> rendered = renderFingerprint(m_ridgeMap);
-    
+    // Aplicar rendering realista (suavização, skin condition, distorções elásticas, ruído)
+    // Resultado armazenado em m_renderedRidgeMap para uso pelo TextureRenderer
+    m_renderedRidgeMap = renderFingerprint(m_ridgeMap);
+
     QImage image(m_width, m_height, QImage::Format_Grayscale8);
     
     for (int j = 0; j < m_height; ++j) {
         for (int i = 0; i < m_width; ++i) {
             // Inverter: cristas = escuro (0), vales = claro (255)
             int idx = j * m_width + i;
-            int gray = static_cast<int>(255 * (1.0f - rendered[idx]));
+            int gray = static_cast<int>(255 * (1.0f - m_renderedRidgeMap[idx]));
             gray = std::clamp(gray, 0, 255);
             image.setPixel(i, j, qRgb(gray, gray, gray));
         }
@@ -402,55 +402,114 @@ void RidgeGenerator::applyLocalContrastVariation(std::vector<float>& image) {
 }
 
 void RidgeGenerator::applyElasticDistortion(std::vector<float>& image) {
-    // Distorção elástica usando campos de deslocamento baseados em Perlin
-    double strength = m_varParams.plasticDistortionStrength;
-    double freq = 0.01 * m_varParams.plasticDistortionBumps;
-    
+    // Sistema avançado de distorção elástica multi-escala
+    double baseStrength = m_varParams.plasticDistortionStrength;
+    double baseFreq = 0.01 * m_varParams.plasticDistortionBumps;
+
     std::vector<float> distorted(m_width * m_height, 0.0f);
-    
+
+    // Centro da impressão digital (para distorção radial)
+    double centerX = m_coreX;
+    double centerY = m_coreY;
+    double maxDist = std::sqrt(m_width * m_width + m_height * m_height) * 0.5;
+
     for (int j = 0; j < m_height; ++j) {
         for (int i = 0; i < m_width; ++i) {
             int idx = j * m_width + i;
-            
+
             if (m_shapeMap[idx] < 0.1f) {
                 distorted[idx] = 0.0f;
                 continue;
             }
-            
-            // Deslocamento baseado em Perlin noise
-            double dx = perlinNoise(i * freq, j * freq) * strength;
-            double dy = perlinNoise(i * freq + 100, j * freq + 100) * strength;
-            
-            // Coordenadas de origem com interpolação bilinear
+
+            double dx = 0.0;
+            double dy = 0.0;
+
+            // 1. Distorção Multi-Escala (Fractal Brownian Motion)
+            if (m_varParams.enableMultiScaleDistortion) {
+                double amplitude = baseStrength;
+                double frequency = baseFreq;
+
+                for (int octave = 0; octave < m_varParams.distortionOctaves; ++octave) {
+                    dx += perlinNoise(i * frequency, j * frequency) * amplitude;
+                    dy += perlinNoise(i * frequency + 100, j * frequency + 100) * amplitude;
+
+                    amplitude *= m_varParams.distortionPersistence;
+                    frequency *= 2.0;
+                }
+            } else {
+                // Distorção simples (original)
+                dx = perlinNoise(i * baseFreq, j * baseFreq) * baseStrength;
+                dy = perlinNoise(i * baseFreq + 100, j * baseFreq + 100) * baseStrength;
+            }
+
+            // 2. Distorção Radial (simula pressão do dedo)
+            if (m_varParams.enableRadialDistortion) {
+                double distFromCenter = std::sqrt((i - centerX) * (i - centerX) +
+                                                  (j - centerY) * (j - centerY));
+                double normalizedDist = distFromCenter / maxDist;
+
+                // Compressão radial (mais forte no centro)
+                double radialFactor = std::exp(-normalizedDist * normalizedDist * 2.0);
+                double radialStrength = m_varParams.radialDistortionStrength * radialFactor;
+
+                double angleToCenter = std::atan2(j - centerY, i - centerX);
+                dx += std::cos(angleToCenter) * radialStrength * normalizedDist;
+                dy += std::sin(angleToCenter) * radialStrength * normalizedDist;
+            }
+
+            // 3. Distorção Direcional (ao longo das cristas)
+            if (m_varParams.enableDirectionalDistortion && idx < m_orientationMap.size()) {
+                double orientation = m_orientationMap[idx];
+                double dirStrength = m_varParams.directionalDistortionStrength;
+
+                // Perlin noise modulado pela orientação
+                double dirNoise = perlinNoise(i * baseFreq * 0.5, j * baseFreq * 0.5);
+
+                dx += std::cos(orientation) * dirNoise * dirStrength;
+                dy += std::sin(orientation) * dirNoise * dirStrength;
+            }
+
+            // 4. Distorção de Cisalhamento (shear)
+            if (m_varParams.enableShearDistortion) {
+                double shear = m_varParams.shearStrength;
+                double angle = m_varParams.shearAngle;
+
+                // Cisalhamento horizontal e vertical
+                dx += (j - m_height / 2.0) * std::tan(angle) * shear * 0.01;
+                dy += (i - m_width / 2.0) * std::tan(angle) * shear * 0.01;
+            }
+
+            // Aplicar deslocamento com interpolação bilinear
             double srcX = i + dx;
             double srcY = j + dy;
-            
+
             int x0 = static_cast<int>(std::floor(srcX));
             int y0 = static_cast<int>(std::floor(srcY));
             int x1 = x0 + 1;
             int y1 = y0 + 1;
-            
+
             double fx = srcX - x0;
             double fy = srcY - y0;
-            
+
             // Clamp para bordas
             x0 = std::clamp(x0, 0, m_width - 1);
             x1 = std::clamp(x1, 0, m_width - 1);
             y0 = std::clamp(y0, 0, m_height - 1);
             y1 = std::clamp(y1, 0, m_height - 1);
-            
+
             // Interpolação bilinear
             float v00 = image[y0 * m_width + x0];
             float v10 = image[y0 * m_width + x1];
             float v01 = image[y1 * m_width + x0];
             float v11 = image[y1 * m_width + x1];
-            
+
             float top = static_cast<float>(v00 * (1 - fx) + v10 * fx);
             float bottom = static_cast<float>(v01 * (1 - fx) + v11 * fx);
             distorted[idx] = static_cast<float>(top * (1 - fy) + bottom * fy);
         }
     }
-    
+
     image = distorted;
 }
 

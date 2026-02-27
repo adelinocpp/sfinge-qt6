@@ -52,4 +52,8 @@ build-debug
 legado
 deploy
 tests
+demo
 *.py
+*.pdf
+papers
+.json

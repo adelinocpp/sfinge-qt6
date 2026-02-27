@@ -1,0 +1,59 @@
+{
+  "rendering": {
+    "enablePores": true,
+    "poreDensity": 0.005,
+    "poreMinSize": 1.0,
+    "poreMaxSize": 3.0,
+    "poreMeanSize": 2.0,
+    "poreSizeStdDev": 0.5,
+    "minPoreIntensity": 0.25,
+    "maxPoreIntensity": 0.40,
+    "poreCircularRatio": 0.6,
+    "poreEllipticalRatio": 0.3,
+    "poreIrregularRatio": 0.1,
+    "enablePoreClustering": true,
+    "poreClusteringFactor": 0.3,
+    "poreClusterSize": 3,
+
+    "enableDirectionalLighting": true,
+    "lightAzimuth": 45.0,
+    "lightElevation": 45.0,
+    "lightIntensity": 0.6,
+    "ridgeHeight": 0.15,
+    "ambientLight": 0.4,
+    "enableSpecular": false,
+
+    "enableArtifacts": true,
+    "enableMoisture": true,
+    "moistureDensity": 0.002,
+    "moistureMinSize": 15.0,
+    "moistureMaxSize": 40.0,
+    "moistureIntensity": 0.15,
+    "enableDirt": true,
+    "dirtDensity": 0.001,
+    "dirtMinSize": 10.0,
+    "dirtMaxSize": 30.0,
+    "dirtIntensity": 0.2,
+    "enableScars": false,
+    "numScars": 0,
+    "enableDryness": false,
+    "numDryCracks": 0,
+    "enableSmudges": true,
+    "smudgeDensity": 0.0015,
+    "smudgeMinSize": 20.0,
+    "smudgeMaxSize": 50.0,
+    "smudgeIntensity": 0.12,
+
+    "enableAntiAliasing": true,
+    "antiAliasingSigma": 0.8,
+    "ridgeTransitionWidth": 1.5,
+
+    "finalBlurSigma": 0.5,
+    "contrastPercentileLower": 2.0,
+    "contrastPercentileUpper": 98.0
+  },
+  "ridge": {
+    "initialSeedDensity": 0.00001,
+    "useSIMD": true
+  }
+}

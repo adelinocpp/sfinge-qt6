@@ -26,8 +26,13 @@ public:
     void setCorePosition(double coreX, double coreY);
     
     QImage generate();
-    
+
+    // Retorna ridgeMap binário bruto (0/1 do Gabor, sem distorções)
     std::vector<float> getRidgeMap() const { return m_ridgeMap; }
+
+    // Retorna ridgeMap renderizado com suavização, skin condition e distorções elásticas
+    // Use este em vez de getRidgeMap() para gerar impressões (não masterprints)
+    std::vector<float> getRenderedRidgeMap() const { return m_renderedRidgeMap; }
     
     // Estatísticas de minúcias
     int getMinutiaeCount() const { return m_minutiaeGenerator.getMinutiaeCount(); }
@@ -61,6 +66,7 @@ private:
     std::vector<float> m_densityMap;
     std::vector<float> m_shapeMap;
     std::vector<float> m_ridgeMap;
+    std::vector<float> m_renderedRidgeMap;  // Resultado de renderFingerprint() (com distorções)
     int m_width;
     int m_height;
     double m_coreX;

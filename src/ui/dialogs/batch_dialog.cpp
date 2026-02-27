@@ -84,7 +84,7 @@ void BatchDialog::setupUi() {
     
     // Checkbox para máscara elíptica (marcado por padrão)
     m_ellipticalMaskCheckBox = new QCheckBox(tr("Apply elliptical mask with fade out"), this);
-    m_ellipticalMaskCheckBox->setChecked(true);
+    m_ellipticalMaskCheckBox->setChecked(false);
     m_ellipticalMaskCheckBox->setToolTip(tr("Apply smooth elliptical mask fading to white at edges"));
     outputLayout->addRow("", m_ellipticalMaskCheckBox);
     
