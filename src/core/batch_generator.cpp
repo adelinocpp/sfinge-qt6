@@ -1,6 +1,7 @@
 #include "batch_generator.h"
 #include <QDir>
 #include <QFile>
+#include <cstdint>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRandomGenerator>
@@ -19,6 +20,49 @@
 #endif
 
 namespace SFinGe {
+
+// Injeta chunk pHYs (DPI 500) num PNG — garante metadados independentemente do Qt
+static bool injectPhysChunk(const QString& filename, int dpi) {
+    QFile f(filename);
+    if (!f.open(QIODevice::ReadOnly)) return false;
+    QByteArray buf = f.readAll();
+    f.close();
+
+    auto writeU32 = [](uint8_t* p, uint32_t v) {
+        p[0]=(v>>24)&0xFF; p[1]=(v>>16)&0xFF; p[2]=(v>>8)&0xFF; p[3]=v&0xFF;
+    };
+    auto crc32 = [](const uint8_t* data, int len) -> uint32_t {
+        uint32_t crc = 0xFFFFFFFFu;
+        for (int i = 0; i < len; ++i) {
+            crc ^= data[i];
+            for (int j = 0; j < 8; ++j)
+                crc = (crc >> 1) ^ (0xEDB88320u & (uint32_t)(-(int32_t)(crc & 1)));
+        }
+        return crc ^ 0xFFFFFFFFu;
+    };
+
+    uint32_t ppu = static_cast<uint32_t>(dpi / 0.0254 + 0.5);
+    uint8_t chunk[21];
+    writeU32(chunk + 0, 9);
+    chunk[4]='p'; chunk[5]='H'; chunk[6]='Y'; chunk[7]='s';
+    writeU32(chunk + 8,  ppu);
+    writeU32(chunk + 12, ppu);
+    chunk[16] = 1;
+    writeU32(chunk + 17, crc32(chunk + 4, 13));
+
+    const int pos = 33;
+    if (buf.size() < pos) return false;
+    QByteArray out;
+    out.reserve(buf.size() + 21);
+    out.append(buf.left(pos));
+    out.append(reinterpret_cast<const char*>(chunk), 21);
+    out.append(buf.mid(pos));
+
+    if (!f.open(QIODevice::WriteOnly)) return false;
+    bool ok = (f.write(out) == out.size());
+    f.close();
+    return ok;
+}
 
 // Helper: computa alpha [0,1] do modelo 4 seções para ponto (fx, fy)
 // no sistema de coordenadas da impressão base (origem = canto sup-esq).
@@ -131,7 +175,8 @@ bool BatchGenerator::generateBatch() {
                 // v1+: transforms + crop 500×600 + shape mask
                 VersionTransform transform = generateVersionTransform(verIdx);
                 transformedFingerprint = applyVersionTransforms(baseFingerprint, transform,
-                    baseInstance.baseParams.shape, baseW, baseH);
+                    baseInstance.baseParams.shape, baseInstance.baseParams.rendering,
+                    baseW, baseH);
             }
             
             // Salvar imagem
@@ -244,12 +289,11 @@ bool BatchGenerator::generateBatchParallel() {
                     transformedFingerprint = baseFingerprint.copy();
                     transformedFingerprint.setDotsPerMeterX(500 * 39.3701);
                     transformedFingerprint.setDotsPerMeterY(500 * 39.3701);
-                    transformedFingerprint = applyShapeMask(transformedFingerprint,
-                        task.instance.baseParams.shape, 0, 0);
                 } else {
                     VersionTransform transform = generateVersionTransform(verIdx);
                     transformedFingerprint = applyVersionTransforms(baseFingerprint, transform,
-                        task.instance.baseParams.shape, baseW, baseH);
+                        task.instance.baseParams.shape, task.instance.baseParams.rendering,
+                        baseW, baseH);
                 }
                 
                 // Salvar imagem
@@ -362,7 +406,7 @@ void BatchGenerator::WorkerThread::run() {
             // v1+: transforms + crop 500×600 + shape mask
             VersionTransform transform = m_generator->generateVersionTransform(task.versionIndex);
             transformedFingerprint = m_generator->applyVersionTransforms(task.baseFingerprint, transform,
-                task.instance.baseParams.shape, baseW, baseH);
+                task.instance.baseParams.shape, task.instance.baseParams.rendering, baseW, baseH);
         }
         
         // Salvar imagem
@@ -444,6 +488,11 @@ FingerprintInstance BatchGenerator::createBaseFingerprint(int index) {
 
     // Moisture é per-impression (varia por versão) — não faz parte do masterprint
     instance.baseParams.rendering.enableMoisture = false;
+    // Base sem cicatrizes — cicatrizes aparecem apenas nas variantes (v01+) como lesão posterior
+    instance.baseParams.rendering.enableScars = false;
+    // Batch gera a 1000×1200: kernel 21×21 (halfSize=10) suficiente para freq=1/24
+    // (equivalente físico ao kernel 41×41 usado no GUI a 500×600)
+    instance.baseParams.ridge.gaborFilterSize = 10;
 
     return instance;
 }
@@ -496,7 +545,7 @@ VersionTransform BatchGenerator::generateVersionTransform(int versionIndex) cons
 
 QImage BatchGenerator::applyVersionTransforms(const QImage& baseImage,
     const VersionTransform& transform, const ShapeParameters& shape,
-    int baseW, int baseH) const {
+    const RenderingParameters& rendering, int baseW, int baseH) const {
     QImage result = baseImage.copy();
 
     // 1. Aplicar ruído
@@ -546,10 +595,63 @@ QImage BatchGenerator::applyVersionTransforms(const QImage& baseImage,
     if (QRandomGenerator::global()->bounded(2) == 0)
         result = applyMoisture(result);
 
+    // 9. Cicatriz aleatória (40% chance) — simula lesão posterior ao registo da base
+    if (rendering.enableScars && QRandomGenerator::global()->bounded(100) < 40)
+        result = applyScarring(result, rendering);
+
     // Garantir DPI 500
     result.setDotsPerMeterX(500 * 39.3701);
     result.setDotsPerMeterY(500 * 39.3701);
 
+    return result;
+}
+
+QImage BatchGenerator::applyScarring(const QImage& img, const RenderingParameters& rendering) const {
+    QImage result = img.copy();
+    auto* rng = QRandomGenerator::global();
+    int numScars = std::max(1, rendering.numScars);
+
+    for (int i = 0; i < numScars; ++i) {
+        int startX = rng->bounded(result.width());
+        int startY = rng->bounded(result.height());
+        double angle  = rng->generateDouble() * 2.0 * M_PI;
+        double length = rendering.scarMinLength +
+                        rng->generateDouble() * (rendering.scarMaxLength - rendering.scarMinLength);
+        int endX = startX + static_cast<int>(length * std::cos(angle));
+        int endY = startY + static_cast<int>(length * std::sin(angle));
+
+        int dx = std::abs(endX - startX);
+        int dy = std::abs(endY - startY);
+        int sx = startX < endX ? 1 : -1;
+        int sy = startY < endY ? 1 : -1;
+        int err = dx - dy;
+        int x = startX, y = startY;
+        int steps = 0;
+        int maxSteps = dx + dy + 1;
+
+        while (steps < maxSteps) {
+            int iWidth = static_cast<int>(std::ceil(rendering.scarWidth));
+            for (int wy = -iWidth; wy <= iWidth; ++wy) {
+                for (int wx = -iWidth; wx <= iWidth; ++wx) {
+                    int nx = x + wx, ny = y + wy;
+                    if (nx < 0 || nx >= result.width() || ny < 0 || ny >= result.height()) continue;
+                    double dist = std::sqrt(static_cast<double>(wx*wx + wy*wy));
+                    if (dist > rendering.scarWidth) continue;
+                    double falloff = 1.0 - dist / rendering.scarWidth;
+                    double longi   = std::sin(M_PI * steps / maxSteps);
+                    double effect  = rendering.scarIntensity * falloff * longi;
+                    uchar* line = result.scanLine(ny);
+                    int p = line[nx];
+                    line[nx] = static_cast<uchar>(std::min(255, static_cast<int>(p + (255 - p) * effect)));
+                }
+            }
+            if (x == endX && y == endY) break;
+            int e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; x += sx; }
+            if (e2 <  dx) { err += dx; y += sy; }
+            ++steps;
+        }
+    }
     return result;
 }
 
@@ -872,7 +974,10 @@ bool BatchGenerator::saveFingerprint(const QImage& image, const FingerprintInsta
         .arg(actualIndex, 4, 10, QChar('0'))
         .arg(versionIndex, 2, 10, QChar('0'));
     
-    return image.save(filename);
+    bool ok = image.save(filename);
+    if (ok && filename.endsWith(".png", Qt::CaseInsensitive))
+        injectPhysChunk(filename, 500);  // garante chunk pHYs @ 500 DPI
+    return ok;
 }
 
 bool BatchGenerator::saveParameters(const FingerprintParameters& params, const SingularPoints& points,

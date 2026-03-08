@@ -76,7 +76,9 @@ private:
     FingerprintInstance createBaseFingerprint(int index);
     VersionTransform generateVersionTransform(int versionIndex) const;
     QImage applyVersionTransforms(const QImage& baseImage, const VersionTransform& transform,
-                                   const ShapeParameters& shape, int baseW, int baseH) const;
+                                   const ShapeParameters& shape, const RenderingParameters& rendering,
+                                   int baseW, int baseH) const;
+    QImage applyScarring(const QImage& img, const RenderingParameters& rendering) const;
     FingerprintClass selectClassByPopulation() const;  // Seleção por distribuição populacional
 
     // Funções de transformação de imagem

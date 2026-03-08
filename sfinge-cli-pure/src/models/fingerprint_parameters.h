@@ -40,8 +40,8 @@ struct DensityParameters {
     // Frequência de cristas — range estreito para espaçamento mais homogéneo:
     //   minF = 1/12 ≈ 0.083 (período 12px — esparso moderado)
     //   maxF = 1/7  ≈ 0.143 (período 7px  — denso moderado; fator ~1.7× vs 3× original)
-    float minFrequency = 1.0f / 24.0f;  // período 24px — sincronizado com Qt6
-    float maxFrequency = 1.0f / 18.0f;  // período 18px — sincronizado com Qt6
+    float minFrequency = 1.0f / 12.0f;  // período 12px — validado MEMORY.md
+    float maxFrequency = 1.0f / 9.0f;   // período 9px  — validado MEMORY.md; fator 1.33×
     double zoom = 2.0;
     double amplify = 1.5;
 };
@@ -62,7 +62,7 @@ struct OrientationParameters {
     double coreConvergenceProbability = 0.3;
     double anisotropyFactorX = 1.0;
     double anisotropyFactorY = 1.0;
-    OrientationMethod method = OrientationMethod::PoincareSmoothed;  // CSV: orientation_method_poincare-smoothed ✓
+    OrientationMethod method = OrientationMethod::Poincare;  // validado MEMORY.md (NÃO usar PoincareSmoothed)
     int fomfeOrderM = 5;
     int fomfeOrderN = 5;
     int legendreOrder = 5;
@@ -70,14 +70,14 @@ struct OrientationParameters {
     double archAmplitude = 0.22;
     double tentedArchPeakInfluenceDecay = 0.12;
     double loopVerticalBiasStrength = 0.4;
-    double loopEdgeBlendFactor = 0.4;
+    double loopEdgeBlendFactor = 0.0;
     double loopVerticalBiasRadiusFactor = 1.5;
     double whorlSpiralFactor = 0.12;
-    double whorlEdgeDecayFactor = 0.18;
+    double whorlEdgeDecayFactor = 0.0;
     double twinLoopSmoothing = 7.0;
     double centralPocketConcentration = 0.06;
     double accidentalIrregularity = 0.08;
-    double smoothingSigma = 7.5;  // CSV: smooth_sigma_high ✓
+    double smoothingSigma = 6.0;  // validado MEMORY.md (Rodada 11 revert)
     bool enableSmoothing = true;
     bool quietMode = false;
 };

@@ -41,8 +41,8 @@ struct DensityParameters {
     // Frequência de cristas — range estreito para espaçamento mais homogéneo:
     //   minF = 1/12 ≈ 0.083 (período 12px — esparso moderado)
     //   maxF = 1/7  ≈ 0.143 (período 7px  — denso moderado; fator ~1.7× vs 3× original)
-    float minFrequency = 1.0f / 24.0f;  // período 24px — +10% vs 1/22; gaborFilterSize=20 necessário
-    float maxFrequency = 1.0f / 18.0f;  // período 18px — +12% vs 1/16; fator 1.33×
+    float minFrequency = 1.0f / 12.0f;  // período 12px — validado MEMORY.md; gaborFilterSize=20 adequado
+    float maxFrequency = 1.0f / 9.0f;   // período 9px  — validado MEMORY.md; fator 1.33×
     double zoom = 2.0;
     double amplify = 1.5;
 };
@@ -260,6 +260,7 @@ struct RidgeParameters {
     // Range: 0.0001 (very sparse) to 0.01 (very dense)
     // Default: 0.001 (0.1% - SFINGE original)
     double initialSeedDensity = 0.001;
+
 };
 
 struct MinutiaeStatistics {

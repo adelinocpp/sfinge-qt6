@@ -123,6 +123,10 @@ FingerprintInstance BatchGenerator::createBaseFingerprint(int index) {
     instance.baseParams.rendering = m_config.rendering;
     // Moisture é per-impression (varia por versão) — não faz parte do masterprint
     instance.baseParams.rendering.enableMoisture = false;
+    // Base sem cicatrizes — cicatrizes aparecem apenas nas variantes (v01+) como lesão posterior
+    instance.baseParams.rendering.enableScars = false;
+    // Batch gera a 1000×1200: kernel 21×21 (halfSize=10) suficiente para freq=1/24
+    instance.baseParams.ridge.gaborFilterSize = 10;
 
     return instance;
 }
@@ -442,7 +446,7 @@ Image BatchGenerator::applyMoisture(const Image& image, std::mt19937& rng) const
 
 Image BatchGenerator::applyVersionTransforms(const Image& baseImage,
     const VersionTransform& transform, const ShapeParameters& shape,
-    int baseW, int baseH, std::mt19937& rng) {
+    const RenderingParameters& rendering, int baseW, int baseH, std::mt19937& rng) {
     Image result = baseImage.copy();
 
     if (transform.noiseLevel > 0.001) {
@@ -492,6 +496,61 @@ Image BatchGenerator::applyVersionTransforms(const Image& baseImage,
     if (coin(rng))
         result = applyMoisture(result, rng);
 
+    // 9. Cicatriz aleatória (40% chance) — simula lesão posterior ao registo da base
+    std::uniform_int_distribution<int> scarCoin(0, 99);
+    if (rendering.enableScars && scarCoin(rng) < 40)
+        result = applyScarring(result, rendering, rng);
+
+    return result;
+}
+
+Image BatchGenerator::applyScarring(const Image& img, const RenderingParameters& rendering, std::mt19937& rng) const {
+    Image result = img.copy();
+    int numScars = std::max(1, rendering.numScars);
+    std::uniform_real_distribution<double> dist01(0.0, 1.0);
+    std::uniform_real_distribution<double> angleDist(0.0, 2.0 * M_PI);
+
+    for (int i = 0; i < numScars; ++i) {
+        int startX = static_cast<int>(dist01(rng) * result.width());
+        int startY = static_cast<int>(dist01(rng) * result.height());
+        double angle  = angleDist(rng);
+        double length = rendering.scarMinLength +
+                        dist01(rng) * (rendering.scarMaxLength - rendering.scarMinLength);
+        int endX = startX + static_cast<int>(length * std::cos(angle));
+        int endY = startY + static_cast<int>(length * std::sin(angle));
+
+        int dx = std::abs(endX - startX);
+        int dy = std::abs(endY - startY);
+        int sx = startX < endX ? 1 : -1;
+        int sy = startY < endY ? 1 : -1;
+        int err = dx - dy;
+        int x = startX, y = startY;
+        int steps = 0;
+        int maxSteps = dx + dy + 1;
+
+        while (steps < maxSteps) {
+            int iWidth = static_cast<int>(std::ceil(rendering.scarWidth));
+            for (int wy = -iWidth; wy <= iWidth; ++wy) {
+                for (int wx = -iWidth; wx <= iWidth; ++wx) {
+                    int nx = x + wx, ny = y + wy;
+                    if (nx < 0 || nx >= result.width() || ny < 0 || ny >= result.height()) continue;
+                    double dist = std::sqrt(static_cast<double>(wx*wx + wy*wy));
+                    if (dist > rendering.scarWidth) continue;
+                    double falloff = 1.0 - dist / rendering.scarWidth;
+                    double longi   = std::sin(M_PI * steps / maxSteps);
+                    double effect  = rendering.scarIntensity * falloff * longi;
+                    uint8_t p = result.pixel(nx, ny);
+                    int newP = static_cast<int>(p + (255 - p) * effect);
+                    result.setPixel(nx, ny, static_cast<uint8_t>(std::min(255, newP)));
+                }
+            }
+            if (x == endX && y == endY) break;
+            int e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; x += sx; }
+            if (e2 <  dx) { err += dx; y += sy; }
+            ++steps;
+        }
+    }
     return result;
 }
 
@@ -590,7 +649,9 @@ bool BatchGenerator::generateBatch() {
                 } else {
                     VersionTransform transform = generateVersionTransformLocal(verIdx, localRng);
                     transformedFingerprint = applyVersionTransforms(baseFingerprint, transform,
-                        instances[taskIndex].baseParams.shape, baseW, baseH, localRng);
+                        instances[taskIndex].baseParams.shape,
+                        instances[taskIndex].baseParams.rendering,
+                        baseW, baseH, localRng);
                 }
 
                 if (!saveFingerprint(transformedFingerprint, instances[taskIndex], taskIndex, verIdx)) {

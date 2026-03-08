@@ -20,9 +20,9 @@ void FingerprintParameters::reset() {
     shape.bottom = 167;
     shape.fingerType = FingerType::Index;
 
-    // Density — frequências validadas; gaborFilterSize=20 cobre minFreq=1/24 com ~10% clipping
-    density.minFrequency = 1.0f / 24.0f;
-    density.maxFrequency = 1.0f / 18.0f;
+    // Density — frequências validadas MEMORY.md; gaborFilterSize=20 adequado para 1/12–1/9
+    density.minFrequency = 1.0f / 12.0f;
+    density.maxFrequency = 1.0f / 9.0f;
     density.zoom = 2.0;
     density.amplify = 1.5;
 
@@ -266,10 +266,10 @@ void FingerprintParameters::fromJson(const QJsonObject& json) {
         orientation.archAmplitude = orientationObj["archAmplitude"].toDouble(0.22);
         orientation.tentedArchPeakInfluenceDecay = orientationObj["tentedArchPeakInfluenceDecay"].toDouble(0.12);
         orientation.loopVerticalBiasStrength = orientationObj["loopVerticalBiasStrength"].toDouble(0.4);
-        orientation.loopEdgeBlendFactor = orientationObj["loopEdgeBlendFactor"].toDouble(0.4);
+        orientation.loopEdgeBlendFactor = orientationObj["loopEdgeBlendFactor"].toDouble(0.0);
         orientation.loopVerticalBiasRadiusFactor = orientationObj["loopVerticalBiasRadiusFactor"].toDouble(1.5);
         orientation.whorlSpiralFactor = orientationObj["whorlSpiralFactor"].toDouble(0.12);
-        orientation.whorlEdgeDecayFactor = orientationObj["whorlEdgeDecayFactor"].toDouble(0.18);
+        orientation.whorlEdgeDecayFactor = orientationObj["whorlEdgeDecayFactor"].toDouble(0.0);
         orientation.twinLoopSmoothing = orientationObj["twinLoopSmoothing"].toDouble(7.0);
         orientation.centralPocketConcentration = orientationObj["centralPocketConcentration"].toDouble(0.06);
         orientation.accidentalIrregularity = orientationObj["accidentalIrregularity"].toDouble(0.08);
@@ -301,20 +301,20 @@ void FingerprintParameters::fromJson(const QJsonObject& json) {
         // Advanced pore parameters
         rendering.poreMinSize = renderingObj["poreMinSize"].toDouble(1.5);
         rendering.poreMaxSize = renderingObj["poreMaxSize"].toDouble(5.0);
-        rendering.poreMeanSize = renderingObj["poreMeanSize"].toDouble(2.5);
+        rendering.poreMeanSize = renderingObj["poreMeanSize"].toDouble(1.875);
         rendering.poreSizeStdDev = renderingObj["poreSizeStdDev"].toDouble(0.3);
         rendering.poreCircularRatio = renderingObj["poreCircularRatio"].toDouble(0.6);
         rendering.poreEllipticalRatio = renderingObj["poreEllipticalRatio"].toDouble(0.3);
         rendering.poreIrregularRatio = renderingObj["poreIrregularRatio"].toDouble(0.1);
         rendering.poreEllipseAspectMin = renderingObj["poreEllipseAspectMin"].toDouble(1.2);
         rendering.poreEllipseAspectMax = renderingObj["poreEllipseAspectMax"].toDouble(2.0);
-        rendering.minPoreIntensity = renderingObj["minPoreIntensity"].toDouble(0.50);
-        rendering.maxPoreIntensity = renderingObj["maxPoreIntensity"].toDouble(0.85);
+        rendering.minPoreIntensity = renderingObj["minPoreIntensity"].toDouble(0.375);
+        rendering.maxPoreIntensity = renderingObj["maxPoreIntensity"].toDouble(0.6375);
         rendering.poreOpacityVariation = renderingObj["poreOpacityVariation"].toDouble(0.3);
         rendering.enablePoreClustering = renderingObj["enablePoreClustering"].toBool(true);
         rendering.poreClusteringFactor = renderingObj["poreClusteringFactor"].toDouble(0.3);
         rendering.poreClusterSize = renderingObj["poreClusterSize"].toInt(3);
-        rendering.incipientRidgeRatio = renderingObj["incipientRidgeRatio"].toDouble(0.15);
+        rendering.incipientRidgeRatio = renderingObj["incipientRidgeRatio"].toDouble(0.0);
         rendering.finalBlurSigma = renderingObj["finalBlurSigma"].toDouble(0.5);
         rendering.contrastPercentileLower = renderingObj["contrastPercentileLower"].toDouble(2.0);
         rendering.contrastPercentileUpper = renderingObj["contrastPercentileUpper"].toDouble(98.0);
@@ -340,10 +340,10 @@ void FingerprintParameters::fromJson(const QJsonObject& json) {
         rendering.dirtIntensity = renderingObj["dirtIntensity"].toDouble(0.2);
         rendering.enableScars = renderingObj["enableScars"].toBool(true);
         rendering.numScars = renderingObj["numScars"].toInt(1);
-        rendering.scarMinLength = renderingObj["scarMinLength"].toDouble(30.0);
-        rendering.scarMaxLength = renderingObj["scarMaxLength"].toDouble(80.0);
-        rendering.scarWidth = renderingObj["scarWidth"].toDouble(2.0);
-        rendering.scarIntensity = renderingObj["scarIntensity"].toDouble(0.3);
+        rendering.scarMinLength = renderingObj["scarMinLength"].toDouble(75.0);
+        rendering.scarMaxLength = renderingObj["scarMaxLength"].toDouble(200.0);
+        rendering.scarWidth = renderingObj["scarWidth"].toDouble(2.5);
+        rendering.scarIntensity = renderingObj["scarIntensity"].toDouble(0.375);
         rendering.enableDryness = renderingObj["enableDryness"].toBool(false);
         rendering.numDryCracks = renderingObj["numDryCracks"].toInt(3);
         rendering.dryCrackLength = renderingObj["dryCrackLength"].toDouble(20.0);
@@ -355,7 +355,7 @@ void FingerprintParameters::fromJson(const QJsonObject& json) {
         rendering.smudgeMaxSize = renderingObj["smudgeMaxSize"].toDouble(50.0);
         rendering.smudgeIntensity = renderingObj["smudgeIntensity"].toDouble(0.12);
         rendering.enableAntiAliasing = renderingObj["enableAntiAliasing"].toBool(true);
-        rendering.antiAliasingSigma = renderingObj["antiAliasingSigma"].toDouble(0.8);
+        rendering.antiAliasingSigma = renderingObj["antiAliasingSigma"].toDouble(1.5);
         rendering.ridgeTransitionWidth = renderingObj["ridgeTransitionWidth"].toDouble(1.5);
     }
     

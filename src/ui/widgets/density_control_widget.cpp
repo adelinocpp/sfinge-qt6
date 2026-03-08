@@ -32,14 +32,14 @@ void DensityControlWidget::setupUi() {
     m_minFreqSpin->setRange(0.01, 0.5);
     m_minFreqSpin->setSingleStep(0.01);
     m_minFreqSpin->setDecimals(3);
-    m_minFreqSpin->setValue(1.0 / 15.0);
+    m_minFreqSpin->setValue(1.0 / 12.0);
     formLayout->addRow(tr("Min Frequency:"), m_minFreqSpin);
-    
+
     m_maxFreqSpin = new QDoubleSpinBox(this);
     m_maxFreqSpin->setRange(0.01, 0.5);
     m_maxFreqSpin->setSingleStep(0.01);
     m_maxFreqSpin->setDecimals(3);
-    m_maxFreqSpin->setValue(1.0 / 5.0);
+    m_maxFreqSpin->setValue(1.0 / 9.0);
     formLayout->addRow(tr("Max Frequency:"), m_maxFreqSpin);
     
     mainLayout->addWidget(densityGroup);

@@ -171,6 +171,7 @@ void RidgeGenerator::generateRidgeMapOriginal() {
     for (int i = 0; i < m_width * m_height; ++i) {
         m_ridgeMap[i] *= m_shapeMap[i];
     }
+
 }
 
 void RidgeGenerator::generateRidgeMapImproved() {

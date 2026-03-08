@@ -85,8 +85,9 @@ private:
     VersionTransform generateVersionTransform(int versionIndex);
     VersionTransform generateVersionTransformLocal(int versionIndex, std::mt19937& rng);
     Image applyVersionTransforms(const Image& baseImage, const VersionTransform& transform,
-                                  const ShapeParameters& shape, int baseW, int baseH,
-                                  std::mt19937& rng);
+                                  const ShapeParameters& shape, const RenderingParameters& rendering,
+                                  int baseW, int baseH, std::mt19937& rng);
+    Image applyScarring(const Image& img, const RenderingParameters& rendering, std::mt19937& rng) const;
     Image applyNoise(const Image& image, double noiseLevel);
     Image applyBlur(const Image& image, int radius, double centerX, double centerY);
     Image applyLensDistortion(const Image& image, double k);
