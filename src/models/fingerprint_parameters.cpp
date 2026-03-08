@@ -9,39 +9,40 @@ FingerprintParameters::FingerprintParameters() {
 }
 
 void FingerprintParameters::reset() {
-    // 280×360px @ 500 DPI — proporções do SFinGe original (sT/sL ≈ 1.43)
-    // original: set_shape(100,110,150,90,50) → sT=150 > sL=100 → ponta apontada
-    shape.left = 140;
-    shape.right = 140;
-    shape.top = 200;    // sT > sL: ponta do dedo apontada (não calota plana)
-    shape.middle = 60;  // retângulo curto (17% altura) — não dominante
-    shape.bottom = 100;
+    // Repõe todos os campos com os mesmos valores padrão declarados em fingerprint_parameters.h
+    // IMPORTANTE: manter sincronizado com os defaults dos structs no .h
+
+    // Shape — 500×600px base (batch usa 2× → 1000×1200); proporções GUI iguais ao SFinGe original
+    shape.left = 250;
+    shape.right = 250;
+    shape.top = 333;    // sT > sL: ponta apontada
+    shape.middle = 100;
+    shape.bottom = 167;
     shape.fingerType = FingerType::Index;
-    
-    // Frequências do SFinGe original (FinGe.cpp): minF=1/15, maxF=1/5
-    // Range amplo → maior variação regional de densidade (mais realista)
-    density.minFrequency = 1.0f / 15.0f;
-    density.maxFrequency = 1.0f / 5.0f;
+
+    // Density — frequências validadas; gaborFilterSize=20 cobre minFreq=1/24 com ~10% clipping
+    density.minFrequency = 1.0f / 24.0f;
+    density.maxFrequency = 1.0f / 18.0f;
     density.zoom = 2.0;
     density.amplify = 1.5;
-    
+
     orientation.nCores = 1;
     orientation.nDeltas = 1;
     orientation.verticalBiasStrength = 0.0;
     orientation.verticalBiasRadius = 100.0;
     orientation.anisotropyFactorX = 1.0;
     orientation.anisotropyFactorY = 1.0;
-    
-    // Parâmetros do filtro Gabor (otimizados para performance)
-    ridge.gaborFilterSize = 10;         // Kernel 21x21 — SFinGe original
-    ridge.cacheDegrees = 36;            // FG_CACHE_DEG original
-    ridge.cacheFrequencies = 20;        // 20 bins — SFinGe original
-    ridge.maxIterations = 180;          // Reduzido com early stopping
-    ridge.initialSeedDensity = 0.001;   // 0.1% - valor original do SFinGe
-    
-    // Parâmetros de Minutiae (padrão: método original)
-    minutiae.enableExplicitMinutiae = false;  // SFinGe original: minúcias emergem naturalmente do Gabor
-    minutiae.useContinuousPhase = false;  // IMPORTANTE: padrão é método original
+
+    // Ridge — kernel 41×41 para suportar frequências baixas sem clipping excessivo
+    ridge.gaborFilterSize = 20;
+    ridge.cacheDegrees = 36;
+    ridge.cacheFrequencies = 20;
+    ridge.maxIterations = 180;
+    ridge.initialSeedDensity = 0.001;
+
+    // Minutiae
+    minutiae.enableExplicitMinutiae = false;
+    minutiae.useContinuousPhase = false;
     minutiae.phaseNoiseLevel = 0.1;
     minutiae.useQualityMask = false;
     minutiae.minutiaeDensity = "low";

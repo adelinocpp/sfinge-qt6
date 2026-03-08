@@ -289,4 +289,14 @@ int MinutiaeGenerator::getEndingCount() const {
     return count;
 }
 
+// Implementações "Improved" — delegam para os métodos originais
+// (só chamados quando useContinuousPhase=true; default é false)
+void MinutiaeGenerator::insertRidgeEndingImproved(std::vector<float>& ridgeMap, const Minutia& m) {
+    insertRidgeEnding(ridgeMap, m);
+}
+
+void MinutiaeGenerator::insertBifurcationImproved(std::vector<float>& ridgeMap, const Minutia& m) {
+    insertBifurcation(ridgeMap, m);
+}
+
 } // namespace SFinGe

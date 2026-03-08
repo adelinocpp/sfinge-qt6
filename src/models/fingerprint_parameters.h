@@ -27,23 +27,22 @@ enum class FingerprintClass {
 };
 
 struct ShapeParameters {
-    // 280×360px @ 500 DPI — sT/sL=1.43 (SFinGe original usa ~1.5, ex: set_shape(100,110,150,90,50))
+    // 500×600px @ 500 DPI — escalado de 280×360 (fator 1.786×), sT/sL=1.33
     // sT > sL → ponta do dedo apontada; sM curto → corpo não retangular
-    int left   = 140;
-    int right  = 140;
-    int top    = 200;  // sT > sL: ponta alongada (original: sT=150 > sL=100)
-    int middle = 60;   // retângulo curto — 17% da altura total
-    int bottom = 100;  // base arredondada
+    int left   = 250;
+    int right  = 250;
+    int top    = 333;  // sT/sL = 333/250 = 1.33 — ponta apontada
+    int middle = 100;  // retângulo curto — 17% da altura total
+    int bottom = 167;  // base arredondada
     FingerType fingerType = FingerType::Index;
 };
 
 struct DensityParameters {
-    // Frequência de cristas — SFinGe original (FinGe.cpp):
-    //   minF = 1/15 ≈ 0.067 (período 15 px, cristas esparsas)
-    //   maxF = 1/5  = 0.200 (período 5 px,  cristas densas)
-    // Range amplo produz maior variação regional de densidade, como em impressões reais.
-    float minFrequency = 1.0f / 15.0f;  // ~0.067 (período 15 pixels) — SFinGe original
-    float maxFrequency = 1.0f / 5.0f;   // ~0.200 (período 5 pixels)  — SFinGe original
+    // Frequência de cristas — range estreito para espaçamento mais homogéneo:
+    //   minF = 1/12 ≈ 0.083 (período 12px — esparso moderado)
+    //   maxF = 1/7  ≈ 0.143 (período 7px  — denso moderado; fator ~1.7× vs 3× original)
+    float minFrequency = 1.0f / 24.0f;  // período 24px — +10% vs 1/22; gaborFilterSize=20 necessário
+    float maxFrequency = 1.0f / 18.0f;  // período 18px — +12% vs 1/16; fator 1.33×
     double zoom = 2.0;
     double amplify = 1.5;
 };
@@ -64,7 +63,7 @@ struct OrientationParameters {
     double coreConvergenceProbability = 0.3; // Probabilidade aleatória (0-1)
     double anisotropyFactorX = 1.0;
     double anisotropyFactorY = 1.0;
-    OrientationMethod method = OrientationMethod::Poincare;
+    OrientationMethod method = OrientationMethod::Poincare;  // Legendre linear sobre θ angular é matematicamente errado
     int fomfeOrderM = 5;
     int fomfeOrderN = 5;
     int legendreOrder = 5;
@@ -77,12 +76,12 @@ struct OrientationParameters {
     
     // --- PARÂMETROS DE LOOP ---
     double loopVerticalBiasStrength = 0.4; // Força do bias que curva o loop para baixo
-    double loopEdgeBlendFactor = 0.4; // Força da transição para horizontal nas bordas
+    double loopEdgeBlendFactor = 0.0; // Sem edge blend — referência FinGe.cpp não usa
     double loopVerticalBiasRadiusFactor = 1.5; // Fator do raio de influência (relativo à altura)
     
     // --- PARÂMETROS DE WHORL ---
     double whorlSpiralFactor = 0.12; // Fator de espiral (muito sutil)
-    double whorlEdgeDecayFactor = 0.18; // Decaimento da transição para as bordas
+    double whorlEdgeDecayFactor = 0.0; // Sem edge decay — referência FinGe.cpp não usa
     
     // --- PARÂMETROS DE TWIN LOOP ---
     double twinLoopSmoothing = 7.0; // Sigma de suavização específico
@@ -94,7 +93,7 @@ struct OrientationParameters {
     double accidentalIrregularity = 0.08; // Intensidade da irregularidade
     
     // --- SUAVIZAÇÃO ---
-    double smoothingSigma = 6.0; // Sigma para suavização gaussiana do campo
+    double smoothingSigma = 6.0; // Sigma suavização gaussiana — kernel 37px (validado pré-Rodada11)
     bool enableSmoothing = true; // Habilitar suavização do campo de orientação
     
     // --- MODO SILENCIOSO ---
@@ -107,7 +106,7 @@ struct RenderingParameters {
     double backgroundNoiseFrequency = 0.03;
     double backgroundNoiseAmplitude = 0.02;
     double ridgeNoiseFrequency = 0.1;
-    double ridgeNoiseAmplitude = 0.10;  // era 0.05 — mais ruído para textura natural
+    double ridgeNoiseAmplitude = 0.125;  // CSV: ridge_noise_amp_high ✓
     double valleyNoiseFrequency = 0.08;
     double valleyNoiseAmplitude = 0.02;
 
@@ -119,7 +118,7 @@ struct RenderingParameters {
     // Tamanhos em pixels — calibrados para 500 DPI
     double poreMinSize = 1.5;    // mínimo visível (~75 µm @ 500 DPI)
     double poreMaxSize = 5.0;    // máximo (~250 µm @ 500 DPI)
-    double poreMeanSize = 2.5;   // médio log-normal (~125 µm @ 500 DPI)
+    double poreMeanSize = 1.875;   // médio log-normal (~94 µm @ 500 DPI) (CSV: pore_mean_size_low ✓)
     double poreSizeStdDev = 0.5; // desvio padrão
 
     // Formas dos poros
@@ -131,8 +130,8 @@ struct RenderingParameters {
 
     // Intensidade: fração de interpolação em direção ao branco (vale)
     // 1.0 = poro completamente branco; 0.5 = meio-caminho entre crista e vale
-    double minPoreIntensity = 0.50;    // interpolação mínima em direção ao vale
-    double maxPoreIntensity = 0.85;    // interpolação máxima (poro quase branco)
+    double minPoreIntensity = 0.375;   // interpolação mínima em direção ao vale (CSV: pore_intensity_min_low ✓)
+    double maxPoreIntensity = 0.6375;  // interpolação máxima (CSV: pore_intensity_max_low ✓)
     double poreOpacityVariation = 0.3; // Variação na opacidade (0-1)
 
     // Distribuição espacial
@@ -141,7 +140,7 @@ struct RenderingParameters {
     int poreClusterSize = 3;           // Número de poros por cluster
 
     // Tipos de poros
-    double incipientRidgeRatio = 0.15; // 15% são cristas incipientes (linhas finas)
+    double incipientRidgeRatio = 0.0;  // 0% cristas incipientes (reduz bifurcações artificiais)
 
     // Parâmetros de Renderização Final
     double finalBlurSigma = 0.5;
@@ -150,11 +149,11 @@ struct RenderingParameters {
 
     // Iluminação Direcional - Simula captura em diferentes ângulos
     bool enableDirectionalLighting = false;
-    double lightAzimuth = 45.0;          // Ângulo horizontal (0-360 graus)
-    double lightElevation = 45.0;        // Ângulo vertical (0-90 graus)
+    double lightAzimuth = 56.25;         // Ângulo horizontal (0-360 graus) (CSV: light_azimuth_high ✓)
+    double lightElevation = 33.75;       // Ângulo vertical (0-90 graus) (CSV: light_elevation_low ✓)
     double lightIntensity = 0.6;         // Intensidade do efeito (0-1)
-    double ridgeHeight = 0.15;           // Altura simulada das cristas (0-1)
-    double ambientLight = 0.4;           // Luz ambiente mínima (0-1)
+    double ridgeHeight = 0.1875;         // Altura simulada das cristas (0-1) (CSV: ridge_height_high ✓)
+    double ambientLight = 0.5;           // Luz ambiente mínima (0-1) (CSV: ambient_light_high ✓)
     bool enableSpecular = false;         // Ativar reflexos especulares
     double specularStrength = 0.3;       // Força dos reflexos (0-1)
     double specularShininess = 20.0;     // Nitidez dos reflexos (1-100)
@@ -163,7 +162,7 @@ struct RenderingParameters {
     bool enableArtifacts = true;        // Ativar sistema de artefatos
 
     // Umidade / Suor
-    bool enableMoisture = true;          // Manchas de umidade
+    bool enableMoisture = false;         // Moisture aplicado externamente per-version; base sem moisture
     double moistureDensity = 0.002;      // Densidade de manchas (0-0.01)
     double moistureMinSize = 15.0;       // Tamanho mínimo (pixels)
     double moistureMaxSize = 40.0;       // Tamanho máximo
@@ -179,10 +178,10 @@ struct RenderingParameters {
     // Cicatrizes / Cortes — habilitado (usuário solicitou)
     bool enableScars = true;             // Cicatrizes lineares
     int numScars = 1;                    // Número de cicatrizes (0-5)
-    double scarMinLength = 30.0;         // Comprimento mínimo
-    double scarMaxLength = 80.0;         // Comprimento máximo
-    double scarWidth = 2.0;              // Largura (pixels)
-    double scarIntensity = 0.3;          // Efeito nas cristas (0-1)
+    double scarMinLength = 75.0;         // Comprimento mínimo (2× do original 37.5)
+    double scarMaxLength = 200.0;        // Comprimento máximo (2× do original 100)
+    double scarWidth = 2.5;              // Largura (pixels) (CSV: scar_width_high ✓)
+    double scarIntensity = 0.375;        // Efeito nas cristas (0-1) (CSV: scar_intensity_high ✓)
 
     // Ressecamento / Rachaduras — desabilitado por padrão (causa manchas escuras)
     bool enableDryness = false;          // Linhas de ressecamento
@@ -221,7 +220,7 @@ struct VariationParameters {
     double radialDistortionStrength = 0.5;    // era 1.5
 
     bool enableDirectionalDistortion = true;
-    double directionalDistortionStrength = 0.2; // era 0.8
+    double directionalDistortionStrength = 0.25; // CSV: directional_strength_high ✓
 
     bool enableShearDistortion = false;       // Cisalhamento (movimento lateral)
     double shearAngle = 0.1;                  // Ângulo de cisalhamento (radianos)
@@ -242,7 +241,7 @@ struct VariationParameters {
     // Condição da Pele (Cappelli Step 6: erosão=seca, dilatação=úmida)
     // factor > 0 → úmido (cristas mais grossas), factor < 0 → seco (cristas mais finas)
     bool enableSkinCondition = true;
-    double skinConditionFactor = 0.10;  // era 0.15 — leve, sutil
+    double skinConditionFactor = 0.125;  // CSV: skin_condition_factor_high ✓
 };
 
 struct ClassificationParameters {
@@ -250,7 +249,7 @@ struct ClassificationParameters {
 };
 
 struct RidgeParameters {
-    int gaborFilterSize = 10;  // Kernel 21x21 — SFinGe original
+    int gaborFilterSize = 20;  // Kernel 41x41 — permite minFreq até 1/22 sem clipping excessivo (~7%)
     int cacheDegrees = 36;
     int cacheFrequencies = 20;  // 20 bins de frequência — SFinGe original
     int maxIterations = 180;

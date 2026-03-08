@@ -49,9 +49,15 @@ QImage FingerprintGenerator::generateDensity() {
     
     // SEMPRE regenerar density com novos parâmetros
     m_densityGenerator.setParameters(m_params.density);
-    m_densityGenerator.setShapeMap(m_shapeGenerator.getShapeMap(), 
-                                   m_shapeGenerator.getWidth(), 
+    m_densityGenerator.setShapeMap(m_shapeGenerator.getShapeMap(),
+                                   m_shapeGenerator.getWidth(),
                                    m_shapeGenerator.getHeight());
+    // Offset aleatório por fingerprint — evita padrão determinístico (sempre mesmo top-left/centro)
+    {
+        std::mt19937 dRng(m_currentSeed ^ 0xDEADBEEFu);
+        std::uniform_real_distribution<double> off(-50.0, 50.0);
+        m_densityGenerator.setNoiseOffset(off(dRng), off(dRng));
+    }
     m_densityImage = m_densityGenerator.generate();
     
     if (!m_densityImage.isNull()) {
@@ -126,19 +132,15 @@ QImage FingerprintGenerator::generateFingerprint() {
                                          m_shapeGenerator.getHeight() * 0.4);
     }
 
-    m_ridgeGenerator.generate();  // Preenche m_ridgeMap e aplica renderFingerprint() internamente
+    m_ridgeGenerator.generate();
 
     emit progressChanged(85, "Applying texture rendering...");
 
     int width  = m_shapeGenerator.getWidth();
     int height = m_shapeGenerator.getHeight();
 
-    // Usar ridgeMap renderizado (com suavização 3×3, skin condition, distorção elástica e ruído).
-    // Isso é a impressão como ela sairia do dedo — contínua (0-1), cristas ≈ altas, vales ≈ baixas.
-    // NÃO usar getRidgeMap() aqui (binário puro, sem nenhum efeito).
     std::vector<float> ridgeMap = m_ridgeGenerator.getRenderedRidgeMap();
 
-    // Aplicar TextureRenderer com ridgeMap correto (cristas=1, vales=0)
     TextureRenderer renderer(m_params.rendering, width, height, m_currentSeed);
     auto renderedData = renderer.render(ridgeMap, m_shapeGenerator.getShapeMap(),
                                         m_orientationGenerator.getOrientationMap());

@@ -20,6 +20,40 @@
 
 namespace SFinGe {
 
+// Helper: computa alpha [0,1] do modelo 4 seções para ponto (fx, fy)
+// no sistema de coordenadas da impressão base (origem = canto sup-esq).
+static float computeShapeAlpha(float fx, float fy,
+    int left, int right, int top, int middle, int bottom) {
+    const float cx     = static_cast<float>(left);
+    const float cy_top = static_cast<float>(top);
+    const float cy_bot = static_cast<float>(top + middle);
+    const float ax_l   = static_cast<float>(left);
+    const float ax_r   = static_cast<float>(right);
+    const float ay_top = static_cast<float>(top);
+    const float ay_bot = static_cast<float>(bottom);
+    const float feather = 0.08f;
+
+    if (fy < cy_top) {
+        float dx = fx - cx, dy = fy - cy_top;
+        float ax = (dx <= 0.f) ? ax_l : ax_r;
+        float v = std::sqrt((dx/ax)*(dx/ax) + (dy/ay_top)*(dy/ay_top));
+        if (v >= 1.0f)            return 0.0f;
+        if (v >= 1.0f - feather)  return (1.0f - v) / feather;
+        return 1.0f;
+    } else if (fy > cy_bot) {
+        float dx = fx - cx, dy = fy - cy_bot;
+        float ax = (dx <= 0.f) ? ax_l : ax_r;
+        float v = std::sqrt((dx/ax)*(dx/ax) + (dy/ay_bot)*(dy/ay_bot));
+        if (v >= 1.0f)            return 0.0f;
+        if (v >= 1.0f - feather)  return (1.0f - v) / feather;
+        return 1.0f;
+    } else {
+        float feather_px = feather * std::min(ax_l, ax_r);
+        float distEdge = std::min(fx, static_cast<float>(left + right - 1) - fx);
+        return std::min(1.0f, distEdge / feather_px);
+    }
+}
+
 BatchGenerator::BatchGenerator(QObject* parent)
     : QObject(parent)
     , m_generator(new FingerprintGenerator(this))
@@ -67,10 +101,10 @@ bool BatchGenerator::generateBatch() {
         
         // Gerar impressão base UMA VEZ
         QImage baseFingerprint = m_generator->generateFingerprint();
-        
+        int baseW = baseFingerprint.width();
+        int baseH = baseFingerprint.height();
+
         // Gerar versões: v0=original (1000x1200) + N versões transformadas (500x600)
-        // Se versionsPerFingerprint=3 e skipOriginal=false, gera 4 imagens: v0 + v1,v2,v3
-        // Se skipOriginal=true, pula v0 e gera apenas v1,v2,v3
         int startIdx = m_config.skipOriginal ? 1 : 0;
         for (int verIdx = startIdx; verIdx <= m_config.versionsPerFingerprint && !m_cancelled; ++verIdx) {
             // Calcular tempo restante após primeira impressão
@@ -85,23 +119,19 @@ bool BatchGenerator::generateBatch() {
                 statusMsg += tr(" - Estimated time: %1:%2").arg(minutes).arg(seconds, 2, 10, QChar('0'));
             }
             emit progressUpdated(generated, totalImages, statusMsg);
-            
+
             QImage transformedFingerprint;
-            
+
             if (verIdx == 0) {
-                // Versão 1 (v0): ORIGINAL COMPLETA 1000x1200 SEM recorte
+                // v0: impressão base completa — shape já implícita do TextureRenderer
                 transformedFingerprint = baseFingerprint.copy();
                 transformedFingerprint.setDotsPerMeterX(500 * 39.3701);
                 transformedFingerprint.setDotsPerMeterY(500 * 39.3701);
             } else {
-                // Versões 2+ (v1+): aplicar transformações PERCEPTÍVEIS + recorte 500x600
+                // v1+: transforms + crop 500×600 + shape mask
                 VersionTransform transform = generateVersionTransform(verIdx);
-                transformedFingerprint = applyVersionTransforms(baseFingerprint, transform);
-            }
-            
-            // Aplicar máscara elíptica se habilitado
-            if (m_config.applyEllipticalMask) {
-                transformedFingerprint = applyEllipticalMask(transformedFingerprint);
+                transformedFingerprint = applyVersionTransforms(baseFingerprint, transform,
+                    baseInstance.baseParams.shape, baseW, baseH);
             }
             
             // Salvar imagem
@@ -202,23 +232,24 @@ bool BatchGenerator::generateBatchParallel() {
             
             // Gerar imagem base
             QImage baseFingerprint = localGenerator.generateFingerprint();
-            
+            int baseW = baseFingerprint.width();
+            int baseH = baseFingerprint.height();
+
             // Gerar todas as versões desta impressão
             int startIdx = m_config.skipOriginal ? 1 : 0;
             for (int verIdx = startIdx; verIdx <= m_config.versionsPerFingerprint && !m_cancelled; ++verIdx) {
                 QImage transformedFingerprint;
-                
+
                 if (verIdx == 0) {
                     transformedFingerprint = baseFingerprint.copy();
                     transformedFingerprint.setDotsPerMeterX(500 * 39.3701);
                     transformedFingerprint.setDotsPerMeterY(500 * 39.3701);
+                    transformedFingerprint = applyShapeMask(transformedFingerprint,
+                        task.instance.baseParams.shape, 0, 0);
                 } else {
                     VersionTransform transform = generateVersionTransform(verIdx);
-                    transformedFingerprint = applyVersionTransforms(baseFingerprint, transform);
-                }
-                
-                if (m_config.applyEllipticalMask) {
-                    transformedFingerprint = applyEllipticalMask(transformedFingerprint);
+                    transformedFingerprint = applyVersionTransforms(baseFingerprint, transform,
+                        task.instance.baseParams.shape, baseW, baseH);
                 }
                 
                 // Salvar imagem
@@ -317,21 +348,21 @@ void BatchGenerator::WorkerThread::run() {
         }
         
         QImage transformedFingerprint;
-        
+        int baseW = task.baseFingerprint.width();
+        int baseH = task.baseFingerprint.height();
+
         if (task.versionIndex == 0) {
-            // Versão 1 (v0): ORIGINAL COMPLETA 1000x1200 SEM recorte
+            // v0: impressão base completa com shape mask
             transformedFingerprint = task.baseFingerprint.copy();
             transformedFingerprint.setDotsPerMeterX(500 * 39.3701);
             transformedFingerprint.setDotsPerMeterY(500 * 39.3701);
+            transformedFingerprint = m_generator->applyShapeMask(transformedFingerprint,
+                task.instance.baseParams.shape, 0, 0);
         } else {
-            // Versões 2+ (v1+): aplicar transformações PERCEPTÍVEIS + recorte 500x600
+            // v1+: transforms + crop 500×600 + shape mask
             VersionTransform transform = m_generator->generateVersionTransform(task.versionIndex);
-            transformedFingerprint = m_generator->applyVersionTransforms(task.baseFingerprint, transform);
-        }
-        
-        // Aplicar máscara elíptica se habilitado
-        if (m_generator->m_config.applyEllipticalMask) {
-            transformedFingerprint = m_generator->applyEllipticalMask(transformedFingerprint);
+            transformedFingerprint = m_generator->applyVersionTransforms(task.baseFingerprint, transform,
+                task.instance.baseParams.shape, baseW, baseH);
         }
         
         // Salvar imagem
@@ -381,13 +412,13 @@ FingerprintInstance BatchGenerator::createBaseFingerprint(int index) {
     instance.baseParams.reset();
     
     auto* rng = QRandomGenerator::global();
-    // Para width=1000: left ~500, right ~500
-    instance.baseParams.shape.left = 500 + rng->bounded(-30, 31);
-    instance.baseParams.shape.right = 500 + rng->bounded(-30, 31);
-    // Para height=1200: top ~480, middle ~240, bottom ~480
-    instance.baseParams.shape.top = 480 + rng->bounded(-30, 31);
-    instance.baseParams.shape.middle = 240 + rng->bounded(-20, 21);
-    instance.baseParams.shape.bottom = 480 + rng->bounded(-30, 31);
+    // Shape base 2× GUI (left=250,right=250,top=333,mid=100,bot=167) → base 1000×1200
+    // scaled: left*500/1000=250 ✓  top*600/1200=333 ✓  mid*600/1200=100 ✓  bot*600/1200=167 ✓
+    instance.baseParams.shape.left   = 500 + rng->bounded(-20, 21);  // scaled→250
+    instance.baseParams.shape.right  = 500 + rng->bounded(-20, 21);  // scaled→250
+    instance.baseParams.shape.top    = 666 + rng->bounded(-20, 21);  // scaled→333 (ponta apontada)
+    instance.baseParams.shape.middle = 200 + rng->bounded(-20, 21);  // scaled→100
+    instance.baseParams.shape.bottom = 334 + rng->bounded(-20, 21);  // scaled→167 (base arredondada)
     
     // Gerar pontos singulares baseados no tipo de impressão
     int width = instance.baseParams.shape.left + instance.baseParams.shape.right;
@@ -400,13 +431,9 @@ FingerprintInstance BatchGenerator::createBaseFingerprint(int index) {
     instance.basePoints.generateRandomPoints(selectedClass, width, height);
     instance.baseParams.classification.fingerprintClass = selectedClass;
     
-    // Zerar edge blend na geração em massa
-    instance.baseParams.orientation.loopEdgeBlendFactor = 0.0;
-    instance.baseParams.orientation.whorlEdgeDecayFactor = 0.0;
-    
     // Modo quiet para processamento em lote
     instance.baseParams.orientation.quietMode = m_config.quietMode;
-    
+
     // Randomizar parâmetros de orientação para presilhas
     if (selectedClass == FingerprintClass::RightLoop || selectedClass == FingerprintClass::LeftLoop) {
         instance.baseParams.orientation.coreConvergenceStrength = rng->generateDouble() * 0.25;
@@ -414,7 +441,10 @@ FingerprintInstance BatchGenerator::createBaseFingerprint(int index) {
         instance.baseParams.orientation.verticalBiasStrength = rng->generateDouble() * 0.35;
         instance.baseParams.orientation.verticalBiasRadius = rng->bounded(41);
     }
-    
+
+    // Moisture é per-impression (varia por versão) — não faz parte do masterprint
+    instance.baseParams.rendering.enableMoisture = false;
+
     return instance;
 }
 
@@ -464,41 +494,62 @@ VersionTransform BatchGenerator::generateVersionTransform(int versionIndex) cons
     return transform;
 }
 
-QImage BatchGenerator::applyVersionTransforms(const QImage& baseImage, const VersionTransform& transform) const {
+QImage BatchGenerator::applyVersionTransforms(const QImage& baseImage,
+    const VersionTransform& transform, const ShapeParameters& shape,
+    int baseW, int baseH) const {
     QImage result = baseImage.copy();
-    
+
     // 1. Aplicar ruído
     if (transform.noiseLevel > 0.001) {
         result = applyNoise(result, transform.noiseLevel);
     }
-    
+
     // 2. Aplicar BLUR circular (APÓS ruído, ANTES de lens/perspectiva)
     if (transform.applyBlur && transform.blurRadius > 0) {
         result = applyBlur(result, transform.blurRadius, transform.blurCenter);
     }
-    
+
     // 3. Aplicar distorção de lente (Barrel ou Pincushion)
     if (std::abs(transform.lensDistortion) > 0.001) {
         result = applyLensDistortion(result, transform.lensDistortion);
     }
-    
+
     // 4. Aplicar transformação homográfica (perspectiva)
     if (std::abs(transform.homographyAngle) > 0.1 || !transform.homographyShift.isNull()) {
         result = applyHomography(result, transform.homographyShift, transform.homographyAngle);
     }
-    
+
     // 5. Aplicar rotação
     if (std::abs(transform.rotation) > 0.1) {
         result = applyRotation(result, transform.rotation);
     }
-    
-    // 6. Aplicar recorte final 500x600px (largura x altura) sem bordas vazias
+
+    // 6. Recorte 500×600 com offset polar (simula área de contacto)
     result = applyCrop(result, 500, 600);
-    
-    // 6. Garantir DPI 500
+
+    // 7. Shape mask 4 seções — aplicar no espaço do output com shape escalado
+    // O crop (500×600) está sempre no centro da base (1000×1200) → todos os pixéis ficam
+    // dentro do shape → alpha=1 → máscara ineficaz. Solução: escalar shape para 500×600.
+    {
+        ShapeParameters scaledShape = shape;
+        int baseShapeW = shape.left + shape.right;
+        int baseShapeH = shape.top + shape.middle + shape.bottom;
+        scaledShape.left   = shape.left   * 500 / baseShapeW;
+        scaledShape.right  = shape.right  * 500 / baseShapeW;
+        scaledShape.top    = shape.top    * 600 / baseShapeH;
+        scaledShape.middle = shape.middle * 600 / baseShapeH;
+        scaledShape.bottom = shape.bottom * 600 / baseShapeH;
+        result = applyShapeMask(result, scaledShape, 0, 0);
+    }
+
+    // 8. Moisture por versão: manchas brancas (suor) — posição e intensidade variáveis por impressão
+    if (QRandomGenerator::global()->bounded(2) == 0)
+        result = applyMoisture(result);
+
+    // Garantir DPI 500
     result.setDotsPerMeterX(500 * 39.3701);
     result.setDotsPerMeterY(500 * 39.3701);
-    
+
     return result;
 }
 
@@ -739,51 +790,48 @@ QImage BatchGenerator::applyCrop(const QImage& image, int targetWidth, int targe
     return image.copy(cropX, cropY, targetWidth, targetHeight);
 }
 
-QImage BatchGenerator::applyEllipticalMask(const QImage& image) const {
-    // Criar resultado com mesmo formato da imagem original
+QImage BatchGenerator::applyShapeMask(const QImage& image, const ShapeParameters& shape,
+                                       int originX, int originY) const {
+    // Aplica o shape mask 4 seções ao output: pixels fora do shape → branco
+    // originX/Y: deslocamento do canto sup-esq do crop no espaço da impressão base (~1000×1200)
     QImage result = image.copy();
-    int width = result.width();
-    int height = result.height();
-    
-    // Centro da elipse
-    double cx = width / 2.0;
-    double cy = height / 2.0;
-    
-    // Raios da elipse (94% do tamanho para deixar margem)
-    double rx = width * 0.47;
-    double ry = height * 0.47;
-    
-    // Largura do fade out (10% do menor eixo)
-    double fadeWidth = std::min(rx, ry) * 0.10;
-    
-    // Aplicar máscara com fade out suave usando métodos seguros do Qt
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            // Calcular distância normalizada do centro da elipse
-            double dx_norm = (x - cx) / rx;
-            double dy_norm = (y - cy) / ry;
-            double dist = std::sqrt(dx_norm * dx_norm + dy_norm * dy_norm);
-            
-            // Calcular alpha (transparência)
-            double alpha = 1.0;
-            if (dist > 1.0) {
-                // Fora da elipse: fade out completo para branco
-                alpha = 0.0;
-            } else if (dist > (1.0 - fadeWidth / rx)) {
-                // Na região de fade out: transição suave
-                double fadePos = (dist - (1.0 - fadeWidth / rx)) / (fadeWidth / rx);
-                // Usar função suave (smoothstep)
-                alpha = 1.0 - (fadePos * fadePos * (3.0 - 2.0 * fadePos));
-            }
-            
-            // Aplicar alpha blending com branco usando métodos seguros
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            float alpha = computeShapeAlpha(
+                static_cast<float>(x + originX),
+                static_cast<float>(y + originY),
+                shape.left, shape.right, shape.top, shape.middle, shape.bottom);
             QRgb pixel = result.pixel(x, y);
-            int gray = qGray(pixel);
-            int newGray = static_cast<int>(gray * alpha + 255 * (1.0 - alpha));
-            result.setPixel(x, y, qRgb(newGray, newGray, newGray));
+            int g = static_cast<int>(qGray(pixel) * alpha + 255.f * (1.f - alpha));
+            result.setPixel(x, y, qRgb(g, g, g));
         }
     }
-    
+    return result;
+}
+
+QImage BatchGenerator::applyMoisture(const QImage& image) const {
+    // Manchas brancas de suor — variam por impressão (Cappelli Step 8b)
+    QImage result = image.copy();
+    auto* rng = QRandomGenerator::global();
+    int numBlobs = rng->bounded(2, 8);
+    for (int b = 0; b < numBlobs; ++b) {
+        int cx = rng->bounded(30, image.width()  - 30);
+        int cy = rng->bounded(30, image.height() - 30);
+        double radius = 15.0 + rng->generateDouble() * 25.0;
+        int r = static_cast<int>(radius) + 1;
+        for (int dy = -r; dy <= r; ++dy) {
+            for (int dx = -r; dx <= r; ++dx) {
+                double d = std::sqrt(static_cast<double>(dx*dx + dy*dy));
+                if (d > radius) continue;
+                int px = cx + dx, py = cy + dy;
+                if (px < 0 || px >= image.width() || py < 0 || py >= image.height()) continue;
+                double alpha = (1.0 - d / radius) * 0.18;
+                int orig = qGray(result.pixel(px, py));
+                int newVal = qMin(255, static_cast<int>(orig + alpha * (255 - orig)));
+                result.setPixel(px, py, qRgb(newVal, newVal, newVal));
+            }
+        }
+    }
     return result;
 }
 

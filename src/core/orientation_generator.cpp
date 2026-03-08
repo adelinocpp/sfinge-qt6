@@ -876,7 +876,7 @@ QImage OrientationGenerator::generateVisualization() {
     pen.setWidth(1);
     painter.setPen(pen);
     
-    int spacing = 12;
+    int spacing = 14;
     int lineLength = 10;
     int linesDrawn = 0;
     

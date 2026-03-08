@@ -38,10 +38,27 @@ struct BatchConfig {
     bool skipOriginal = true;
     bool applyEllipticalMask = true;
     bool quietMode = false;
-    
+
     std::string outputDirectory = "./output";
     std::string filenamePrefix = "fingerprint";
     bool saveParameters = false;
+
+    // Seed global para reprodutibilidade (0 = aleatório)
+    unsigned int globalSeed = 0;
+
+    // Controlo de override de shape/class (false = aleatorizar como antes)
+    bool useFixedShape = false;
+    bool useFixedClass = false;
+
+    // Parâmetros herdados para geração de cada impressão
+    ShapeParameters shape;
+    DensityParameters density;
+    OrientationParameters orientation;
+    RidgeParameters ridge;
+    VariationParameters variation;
+    ClassificationParameters classification;
+    MinutiaeParameters minutiae;
+    RenderingParameters rendering;
 };
 
 struct FingerprintInstance {
@@ -53,13 +70,13 @@ struct FingerprintInstance {
 class BatchGenerator {
 public:
     BatchGenerator();
-    
+
     void setBatchConfig(const BatchConfig& config);
     void setNumWorkers(int workers) { m_numWorkers = workers; }
-    
+
     bool generateBatch();
     void cancel() { m_cancelled = true; }
-    
+
     using ProgressCallback = std::function<void(int, int, int)>;
     void setProgressCallback(ProgressCallback callback) { m_progressCallback = callback; }
 
@@ -67,24 +84,28 @@ private:
     FingerprintInstance createBaseFingerprint(int index);
     VersionTransform generateVersionTransform(int versionIndex);
     VersionTransform generateVersionTransformLocal(int versionIndex, std::mt19937& rng);
-    Image applyVersionTransforms(const Image& baseImage, const VersionTransform& transform);
+    Image applyVersionTransforms(const Image& baseImage, const VersionTransform& transform,
+                                  const ShapeParameters& shape, int baseW, int baseH,
+                                  std::mt19937& rng);
     Image applyNoise(const Image& image, double noiseLevel);
     Image applyBlur(const Image& image, int radius, double centerX, double centerY);
     Image applyLensDistortion(const Image& image, double k);
     Image applyHomography(const Image& image, double shiftX, double shiftY, double angle);
     Image applyRotation(const Image& image, double angle);
-    Image applyCrop(const Image& image, int targetWidth, int targetHeight);
-    Image applyEllipticalMask(const Image& image);
+    Image applyCrop(const Image& image, int targetWidth, int targetHeight, std::mt19937& rng);
+    Image applyShapeMask(const Image& image, const ShapeParameters& shape,
+                         int originX, int originY) const;
+    Image applyMoisture(const Image& image, std::mt19937& rng) const;
     bool saveFingerprint(const Image& image, const FingerprintInstance& instance, int fpIndex, int versionIndex);
     FingerprintClass selectClassByPopulation();
-    
+
     BatchConfig m_config;
     int m_numWorkers = 0;
     std::atomic<bool> m_cancelled{false};
     std::atomic<int> m_generated{0};
     std::mutex m_mutex;
     std::mt19937 m_rng;
-    
+
     ProgressCallback m_progressCallback;
 };
 

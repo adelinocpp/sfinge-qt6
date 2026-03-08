@@ -29,6 +29,8 @@ set(SOURCES
     src/core/minutiae_generator.cpp
     src/core/fingerprint_generator.cpp
     src/core/batch_generator.cpp
+    src/core/rendering/perlin_noise.cpp
+    src/core/rendering/texture_renderer.cpp
     src/models/singular_points.cpp
     src/models/fingerprint_parameters.cpp
 )

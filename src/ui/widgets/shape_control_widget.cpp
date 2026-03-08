@@ -19,8 +19,8 @@ void ShapeControlWidget::setupUi() {
     
     m_leftSlider = new QSlider(Qt::Horizontal, this);
     m_leftSlider->setRange(10, 500);
-    m_leftSlider->setValue(140);
-    m_leftLabel = new QLabel("140", this);
+    m_leftSlider->setValue(250);
+    m_leftLabel = new QLabel("250", this);
     QHBoxLayout* leftLayout = new QHBoxLayout();
     leftLayout->addWidget(m_leftSlider);
     leftLayout->addWidget(m_leftLabel);
@@ -28,8 +28,8 @@ void ShapeControlWidget::setupUi() {
     
     m_rightSlider = new QSlider(Qt::Horizontal, this);
     m_rightSlider->setRange(10, 500);
-    m_rightSlider->setValue(140);
-    m_rightLabel = new QLabel("140", this);
+    m_rightSlider->setValue(250);
+    m_rightLabel = new QLabel("250", this);
     QHBoxLayout* rightLayout = new QHBoxLayout();
     rightLayout->addWidget(m_rightSlider);
     rightLayout->addWidget(m_rightLabel);
@@ -37,8 +37,8 @@ void ShapeControlWidget::setupUi() {
     
     m_topSlider = new QSlider(Qt::Horizontal, this);
     m_topSlider->setRange(10, 600);
-    m_topSlider->setValue(200);
-    m_topLabel = new QLabel("200", this);
+    m_topSlider->setValue(333);
+    m_topLabel = new QLabel("333", this);
     QHBoxLayout* topLayout = new QHBoxLayout();
     topLayout->addWidget(m_topSlider);
     topLayout->addWidget(m_topLabel);
@@ -46,8 +46,8 @@ void ShapeControlWidget::setupUi() {
     
     m_bottomSlider = new QSlider(Qt::Horizontal, this);
     m_bottomSlider->setRange(10, 500);
-    m_bottomSlider->setValue(100);
-    m_bottomLabel = new QLabel("100", this);
+    m_bottomSlider->setValue(167);
+    m_bottomLabel = new QLabel("167", this);
     QHBoxLayout* bottomLayout = new QHBoxLayout();
     bottomLayout->addWidget(m_bottomSlider);
     bottomLayout->addWidget(m_bottomLabel);
@@ -55,8 +55,8 @@ void ShapeControlWidget::setupUi() {
     
     m_middleSlider = new QSlider(Qt::Horizontal, this);
     m_middleSlider->setRange(10, 400);
-    m_middleSlider->setValue(60);
-    m_middleLabel = new QLabel("60", this);
+    m_middleSlider->setValue(100);
+    m_middleLabel = new QLabel("100", this);
     QHBoxLayout* middleLayout = new QHBoxLayout();
     middleLayout->addWidget(m_middleSlider);
     middleLayout->addWidget(m_middleLabel);

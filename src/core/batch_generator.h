@@ -75,9 +75,10 @@ signals:
 private:
     FingerprintInstance createBaseFingerprint(int index);
     VersionTransform generateVersionTransform(int versionIndex) const;
-    QImage applyVersionTransforms(const QImage& baseImage, const VersionTransform& transform) const;
+    QImage applyVersionTransforms(const QImage& baseImage, const VersionTransform& transform,
+                                   const ShapeParameters& shape, int baseW, int baseH) const;
     FingerprintClass selectClassByPopulation() const;  // Seleção por distribuição populacional
-    
+
     // Funções de transformação de imagem
     QImage applyNoise(const QImage& image, double noiseLevel) const;
     QImage applyBlur(const QImage& image, int radius, const QPointF& center) const;
@@ -85,7 +86,9 @@ private:
     QImage applyHomography(const QImage& image, const QPointF& shift, double angle) const;
     QImage applyRotation(const QImage& image, double angle) const;
     QImage applyCrop(const QImage& image, int targetWidth, int targetHeight) const;
-    QImage applyEllipticalMask(const QImage& image) const;  // Máscara elíptica com fade out
+    QImage applyShapeMask(const QImage& image, const ShapeParameters& shape,
+                          int originX, int originY) const;  // Shape mask 4 seções (Cappelli)
+    QImage applyMoisture(const QImage& image) const;         // Manchas de suor — por versão
     
     bool saveFingerprint(const QImage& image, const FingerprintInstance& instance, 
                         int fpIndex, int versionIndex);

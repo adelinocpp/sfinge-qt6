@@ -16,6 +16,7 @@ public:
     
     void setParameters(const FingerprintParameters& params);
     void setSingularPoints(const SingularPoints& points);
+    void setSeed(unsigned int seed) { m_rng.seed(seed); }
     
     Image generateFingerprint();
     
@@ -33,7 +34,10 @@ private:
     std::vector<float> m_shapeMap;
     std::vector<float> m_densityMap;
     std::vector<double> m_orientationMap;
-    
+
+    double m_densityNoiseOffsetX = 0.0;
+    double m_densityNoiseOffsetY = 0.0;
+
     OrientationGenerator m_orientationGenerator;
     RidgeGenerator m_ridgeGenerator;
     std::mt19937 m_rng;

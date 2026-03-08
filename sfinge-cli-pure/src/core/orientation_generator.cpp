@@ -52,7 +52,19 @@ void OrientationGenerator::generateVariedAlphas() {
 }
 
 void OrientationGenerator::generateOrientationMap() {
-    generatePoincareMap();
+    switch (m_params.method) {
+        case OrientationMethod::PoincareSmoothed:
+            generatePoincareMap();
+            // Passe extra de suavização além do enableSmoothing normal
+            if (m_params.smoothingSigma > 0) {
+                smoothOrientationMap(m_params.smoothingSigma);
+            }
+            break;
+        case OrientationMethod::Poincare:
+        default:
+            generatePoincareMap();
+            break;
+    }
 }
 
 void OrientationGenerator::generatePoincareMap() {

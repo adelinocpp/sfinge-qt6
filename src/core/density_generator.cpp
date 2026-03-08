@@ -30,8 +30,8 @@ void DensityGenerator::generateDensityMap() {
     for (int layer = 0; layer < 3; ++layer) {
         int res = resolutions[layer];
         
-        // Gerar ruído em baixa resolução
-        auto lowRes = renderClouds(res, res, m_params.zoom, m_params.amplify);
+        // Gerar ruído em baixa resolução com offset aleatório por fingerprint
+        auto lowRes = renderClouds(res, res, m_params.zoom, m_params.amplify, m_noiseOffsetX, m_noiseOffsetY);
         
         // Interpolar para o tamanho real (resize bilinear)
         std::vector<float> upscaled = resizeNoise(lowRes, res, res, m_width, m_height);

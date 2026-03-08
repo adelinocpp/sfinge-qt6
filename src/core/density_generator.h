@@ -13,6 +13,7 @@ public:
     
     void setParameters(const DensityParameters& params);
     void setShapeMap(const std::vector<float>& shapeMap, int width, int height);
+    void setNoiseOffset(double x0, double y0) { m_noiseOffsetX = x0; m_noiseOffsetY = y0; }
     
     QImage generate();
     
@@ -29,6 +30,8 @@ private:
     std::vector<float> m_densityMap;
     int m_width;
     int m_height;
+    double m_noiseOffsetX = 0.0;
+    double m_noiseOffsetY = 0.0;
 };
 
 }
